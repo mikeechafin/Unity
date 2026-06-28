@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venvs/
+
+# Flask / Web
+*.log
+*.sqlite3
+instance/
+.webassets-cache/
+
+# Environment & secrets — never commit
+.env
+.env.local
+.env.*.local
+encryption_key.txt
+server.crt
+server.key
+*.pem
+*.key
+
+# IDE / Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# App runtime output
+output/*
+!output/.gitkeep
+
+# Runtime screenshots from ASR/FEMS fault testing
+static/screenshots/
+
+# Backup / duplicate artifacts
+*.old
+*.preolllama
+*.py.1
+
+# Third-party / generated directories
+EMCLI/
+OEDA/
+TEST_CONFIG_SCRIPTS/
+
+# Vendored binaries (install via package manager instead)
+fd
