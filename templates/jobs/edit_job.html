@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Edit Job{% endblock %}
+{% block page_title %}EDIT JOB{% endblock %}
+
+{# Version: 2026-04-02 v1.0.8 #}
+{# Changes: Full dark modern styling to exactly match Scheduled Jobs / User Management (dark backgrounds, consistent form fields, flashed messages for immediate error feedback). Display Name field and radio toggle preserved. #}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="section-title">Edit Job</div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('jobs.edit_job', job_id=job.job_id) }}">
+        <div class="form-group">
+            <label for="script_name">Internal Script Name (no spaces recommended):</label>
+            <input type="text" id="script_name" name="script_name" value="{{ job.script_name }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="display_name">Display Name (friendly name — can have spaces):</label>
+            <input type="text" id="display_name" name="display_name" value="{{ job.display_name }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="script_path">Script Path:</label>
+            <input type="text" id="script_path" name="script_path" value="{{ job.script_path }}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="script_parameters">Script Parameters (optional):</label>
+            <input type="text" id="script_parameters" name="script_parameters" value="{{ job.script_parameters|default('') }}">
+        </div>
+
+        <div class="form-group">
+            <label for="log_file">Log File Path:</label>
+            <input type="text" id="log_file" name="log_file" value="{{ job.log_file }}" required>
+        </div>
+
+        <div class="job-type-container">
+            <label>Job Type:</label>
+            <div class="radio-group">
+                <input type="radio" id="job_type_interval" name="job_type" value="interval" {% if job_type == 'interval' %}checked{% endif %}>
+                <label for="job_type_interval">Interval-based</label>
+
+                <input type="radio" id="job_type_cron" name="job_type" value="cron" {% if job_type == 'cron' %}checked{% endif %}>
+                <label for="job_type_cron">Cron-scheduled</label>
+
+                <input type="radio" id="job_type_dependent" name="job_type" value="dependent" {% if job_type == 'dependent' %}checked{% endif %}>
+                <label for="job_type_dependent">Dependent</label>
+            </div>
+        </div>
+
+        <div id="schedule_interval_container" class="form-group" style="display: {% if job_type == 'interval' %}block{% else %}none{% endif %};">
+            <label for="schedule_interval">Schedule Interval (Minutes):</label>
+            <input type="number" id="schedule_interval" name="schedule_interval" value="{{ job.schedule_interval|default('') }}" min="1">
+        </div>
+
+        <div id="cron_schedule_container" class="form-group" style="display: {% if job_type == 'cron' %}block{% else %}none{% endif %};">
+            <label for="cron_schedule">Cron Schedule (e.g., "30 14 * * *" for 14:30 daily):</label>
+            <input type="text" id="cron_schedule" name="cron_schedule" value="{{ job.cron_schedule|default('') }}">
+        </div>
+
+        <div id="parent_job_container" class="form-group" style="display: {% if job_type == 'dependent' %}block{% else %}none{% endif %};">
+            <label for="parent_job_id">Run After Job (Dependency):</label>
+            <select id="parent_job_id" name="parent_job_id">
+                <option value="">Select a parent job</option>
+                {% for ajob in available_jobs %}
+                    <option value="{{ ajob[0] }}" {% if job.parent_job_id == ajob[0] %}selected{% endif %}>{{ ajob[1] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="small-action-button primary">Update Job</button>
+            <a href="{{ url_for('jobs.scheduled_jobs') }}" class="small-action-button secondary" style="margin-left: 10px;">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const jobTypeInterval = document.getElementById('job_type_interval');
+        const jobTypeCron = document.getElementById('job_type_cron');
+        const jobTypeDependent = document.getElementById('job_type_dependent');
+        const scheduleIntervalContainer = document.getElementById('schedule_interval_container');
+        const cronScheduleContainer = document.getElementById('cron_schedule_container');
+        const parentJobContainer = document.getElementById('parent_job_container');
+
+        function toggleFields() {
+            const jobType = document.querySelector('input[name="job_type"]:checked').value;
+            scheduleIntervalContainer.style.display = jobType === 'interval' ? 'block' : 'none';
+            cronScheduleContainer.style.display = jobType === 'cron' ? 'block' : 'none';
+            parentJobContainer.style.display = jobType === 'dependent' ? 'block' : 'none';
+        }
+
+        toggleFields();
+        if (jobTypeInterval) jobTypeInterval.addEventListener('change', toggleFields);
+        if (jobTypeCron) jobTypeCron.addEventListener('change', toggleFields);
+        if (jobTypeDependent) jobTypeDependent.addEventListener('change', toggleFields);
+    });
+</script>
+
+<style>
+    .content-wrapper { max-width: 800px; margin: 0 auto; padding: 20px; background: #1e1e1e; color: #ddd; }
+    .section-title { font-size: 1.5em; margin-bottom: 20px; color: #fff; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 6px; font-weight: 600; color: #ddd; }
+    input[type="text"], input[type="number"], select {
+        width: 100%;
+        padding: 12px;
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 6px;
+        color: #ddd;
+        font-size: 1em;
+    }
+    .radio-group { display: flex; gap: 20px; margin-top: 8px; }
+    .radio-group label { font-weight: normal; color: #ddd; }
+    .small-action-button {
+        padding: 12px 24px;
+        font-size: 1em;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+    .primary { background: #28a745; color: white; border: none; }
+    .secondary { background: #6c757d; color: white; border: none; text-decoration: none; }
+    .flash { margin-bottom: 20px; padding: 14px; border-radius: 6px; font-weight: 500; }
+    .flash.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+</style>
+{% endblock %}

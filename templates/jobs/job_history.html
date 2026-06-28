@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Job History - {{ script_name }}{% endblock %}
+
+{% block page_title %}JOB HISTORY - {{ script_name }}{% endblock %}
+
+{% block content %}
+<div class="content-wrapper">
+
+    <div class="section-title">Job History for {{ script_name }}</div>
+
+    {% if history_entries %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>HISTORY ID</th>
+                    <th>RUN TIME</th>
+                    <th>STATUS</th>
+                    <th>EXIT CODE</th>
+                    <th>ERROR MESSAGE</th>
+                    <th>TRIGGERED BY</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in history_entries %}
+                    <tr>
+                        <td>{{ entry.history_id }}</td>
+                        <td>{{ entry.run_time | default('N/A') }}</td>
+                        <td>{{ entry.status | default('Unknown') }}</td>
+                        <td>{{ entry.exit_code | default('N/A') }}</td>
+                        <td>{{ entry.error_message | default('N/A') }}</td>
+                        <td>{{ entry.triggered_by }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No job history entries found for this job.</p>
+    {% endif %}
+</div>
+{% endblock %}

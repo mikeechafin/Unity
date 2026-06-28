@@ -1,0 +1,266 @@
+<!-- Version: 2026-04-04 v1.09 -->
+<!-- Changes: Narrowed the "Paste your token here" input box (max-width:280px + auto-margin centering) to prevent it from overrunning the outline/container while keeping perfect alignment with other fields. No other changes. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - MAA Certification Portal</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: transparent;
+            background-image: url("{{ url_for('static', filename='exadata_racks.png') }}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative;
+            box-sizing: border-box;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.3);
+            z-index: 1;
+        }
+        .email-container {
+            width: 460px;
+            margin: 0 auto;
+            padding: 30px;
+            background-color: rgba(31, 41, 55, 0.95);
+            border: 1px solid #475569;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+        }
+        .header {
+            background-color: {{ oracle_red }};
+            color: #FFFFFF;
+            padding: 5px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 80px;
+            box-sizing: border-box;
+            border-radius: 12px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            flex-grow: 1;
+            text-align: center;
+        }
+        .logo-container {
+            display: flex;
+            align-items: center;
+            margin-right: auto;
+        }
+        .logo-wrapper {
+            display: inline-block;
+            border: 1px solid #d3d3d3;
+        }
+        .oracle-logo {
+            height: 50px;
+            width: auto;
+            object-fit: contain;
+            display: block;
+        }
+        .login-section {
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .login-section h3 {
+            color: #e2e8f0;
+            margin-top: 0;
+            font-size: 18px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 300px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #e2e8f0;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="password"] {
+            width: 100%;
+            max-width: 300px;
+            padding: 16px 20px;
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 9999px;
+            color: #fff;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .form-group input[type="submit"] {
+            background-color: {{ oracle_red }};
+            color: #FFFFFF;
+            padding: 16px 32px;
+            border: none;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            width: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .form-group input[type="submit"]:hover {
+            background-color: #E60000;
+        }
+        .flash-messages {
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 300px;
+        }
+        .flash-messages .flash {
+            padding: 12px 20px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .flash-messages .flash.error {
+            background-color: #ef4444;
+            color: #fff;
+        }
+        .flash-messages .flash.success {
+            background-color: #10b981;
+            color: #fff;
+        }
+        .footer {
+            background-color: #1f2937;
+            border-top: 1px solid #475569;
+            padding: 20px;
+            font-size: 12px;
+            color: #64748b;
+            text-align: right;
+            margin-top: 30px;
+            border-radius: 12px;
+        }
+
+        /* TOKEN SECTION - dark and matching style */
+        .token-section {
+            margin-top: 30px;
+            padding: 24px;
+            background-color: #1f2937;
+            border: 1px solid #475569;
+            border-radius: 12px;
+            text-align: left;
+            max-width: 300px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .token-section h3 {
+            margin: 0 0 8px 0;
+            color: #e2e8f0;
+            font-size: 16px;
+        }
+        .token-section p {
+            margin: 0 0 16px 0;
+            color: #64748b;
+            font-size: 13px;
+        }
+        .token-section input {
+            width: 100%;
+            max-width: 280px;
+            margin: 0 auto 16px auto;
+            display: block;
+            padding: 16px 20px;
+            background: #334155;
+            border: 1px solid #475569;
+            border-radius: 9999px;
+            color: #fff;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+        .token-section button {
+            background-color: #10b981;
+            color: #fff;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            width: 100%;
+        }
+        .token-section button:hover {
+            background-color: #0a9d6e;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <div class="logo-container">
+                <div class="logo-wrapper">
+                    <img src="{{ url_for('static', filename='oracle_logo_trimmed.png') }}" alt="Oracle Logo" class="oracle-logo">
+                </div>
+            </div>
+            <h1>MAA Certification Portal</h1>
+        </div>
+
+        <div class="login-section">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <form method="post" action="{{ url_for('login') }}" enctype="application/x-www-form-urlencoded">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <input type="submit" value="Login">
+                </div>
+            </form>
+        </div>
+
+        <!-- TOKEN LOGIN SECTION - dark and matching style -->
+        <div class="token-section">
+            <h3>🔑 Login with Token (30-day access)</h3>
+            <p>No password required. Paste the token you generated from User Management.</p>
+            <form action="/login/token" method="GET">
+                <input type="text" name="token" placeholder="Paste your token here..." required>
+                <button type="submit">Login with Token</button>
+            </form>
+        </div>
+
+        <div class="footer">
+            Oracle Corporation, 500 Oracle Parkway, Redwood Shores, CA 94065 | <a href="https://www.oracle.com" style="color:#60a5fa;">www.oracle.com</a> | +1.650.506.7000
+        </div>
+    </div>
+</body>
+</html>

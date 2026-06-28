@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}View Log - {{ script_name }}{% endblock %}
+{% block page_title %}Log File for {{ script_name }}{% endblock %}
+{% block content %}
+<div class="content">
+    <h2>Log File: {{ script_name }}</h2>
+    <pre>{{ log_content }}</pre>
+    <a href="{{ url_for('jobs.scheduled_jobs') }}">Back to Scheduled Jobs</a>
+</div>
+{% endblock %}

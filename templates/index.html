@@ -1,0 +1,332 @@
+<!-- Version: 2026-03-30 v1.12 -->
+<!-- Changes: Inserted the rich Oracle Database tile (with 6 performance KPIs) in place of the old simple Database State tile. All other sections (KPI row, Component Health, System Performance with clickable CPU/Disk, segmented Memory bar, Live Issues + Recent Jobs, and all modals) preserved exactly from your v1.09 file. Metrics now populate from the updated backend. -->
+{% extends "base.html" %}
+{% block title %}MAA Operations Console{% endblock %}
+{% block page_title %}OPERATIONS CONSOLE{% endblock %}
+{% block content %}
+<div class="setup-container" style="padding-bottom:80px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:28px;">
+        <h2 style="margin:0; font-size:32px; color:#fff; font-weight:600;">MAA Unified Operations Console</h2>
+        <div style="display:flex; gap:12px;">
+            <button onclick="refreshDashboard()" style="background:#334155; color:#fff; padding:12px 24px; border-radius:9999px; border:none; cursor:pointer;">⟳ Refresh All</button>
+            <button onclick="location.reload()" style="background:#10b981; color:#fff; padding:12px 24px; border-radius:9999px; border:none; cursor:pointer;">Live Update</button>
+        </div>
+    </div>
+    <!-- KPI Row (6 cards) -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:20px; margin-bottom:32px;">
+        <div class="kpi-card" style="background:#1f2937; padding:24px; border-radius:16px; text-align:center; transition:all 0.3s cubic-bezier(0.4,0,0.2,1);">
+            <div style="font-size:56px; color:#10b981; font-weight:700;">{{ kpis.total_systems }}</div>
+            <div style="color:#cbd5e1; font-size:16px; font-weight:500; margin-top:8px;">Total Systems</div>
+        </div>
+        <div class="kpi-card" style="background:#1f2937; padding:24px; border-radius:16px; text-align:center; transition:all 0.3s cubic-bezier(0.4,0,0.2,1);">
+            <div style="font-size:56px; color:#6366f1; font-weight:700;">{{ kpis.active_users }}</div>
+            <div style="color:#cbd5e1; font-size:16px; font-weight:500; margin-top:8px;">Active Users</div>
+        </div>
+        <div class="kpi-card" style="background:#1f2937; padding:24px; border-radius:16px; text-align:center; transition:all 0.3s cubic-bezier(0.4,0,0.2,1);">
+            <div style="font-size:56px; color:#f59e0b; font-weight:700;">{{ kpis.active_issues }}</div>
+            <div style="color:#cbd5e1; font-size:16px; font-weight:500; margin-top:8px;">Active Issues</div>
+        </div>
+        <div class="kpi-card" style="background:#1f2937; padding:24px; border-radius:16px; text-align:center; transition:all 0.3s cubic-bezier(0.4,0,0.2,1);">
+            <div style="font-size:56px; color:#10b981; font-weight:700;">{{ kpis.agents_online }}</div>
+            <div style="color:#cbd5e1; font-size:16px; font-weight:500; margin-top:8px;">Agents Online</div>
+        </div>
+        <div class="kpi-card" style="background:#1f2937; padding:24px; border-radius:16px; text-align:center; transition:all 0.3s cubic-bezier(0.4,0,0.2,1);">
+            <div style="font-size:56px; color:#10b981; font-weight:700;">{{ kpis.iloms_monitored }}</div>
+            <div style="color:#cbd5e1; font-size:16px; font-weight:500; margin-top:8px;">ILOMs Monitored</div>
+        </div>
+        <div class="kpi-card" style="background:#1f2937; padding:24px; border-radius:16px; text-align:center; transition:all 0.3s cubic-bezier(0.4,0,0.2,1);">
+            <div style="font-size:56px; color:#10b981; font-weight:700;">{{ kpis.active_jobs }}</div>
+            <div style="color:#cbd5e1; font-size:16px; font-weight:500; margin-top:8px;">Active Jobs</div>
+        </div>
+    </div>
+    <!-- Component Status Board -->
+    <div style="margin-bottom:40px;">
+        <div style="font-size:18px; font-weight:600; color:#fff; margin-bottom:16px;">Component Health Status</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
+            {% for comp in components %}
+            <div style="background:#1f2937; padding:20px; border-radius:16px; display:flex; align-items:center; gap:16px; transition:all 0.2s;">
+                <div style="font-size:32px;">{{ comp.icon }}</div>
+                <div style="flex:1;">
+                    <div style="font-weight:500; color:#e2e8f0;">{{ comp.name }}</div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+                        <span style="display:inline-block; width:12px; height:12px; background:{{ comp.color }}; border-radius:50%;"></span>
+                        <span style="font-size:13px; color:#cbd5e1; font-weight:500;">{{ comp.issues }} issues • {{ comp.last_check }}</span>
+                    </div>
+                </div>
+                <a href="{{ comp.link }}" style="color:#60a5fa; text-decoration:none;">→ View</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <!-- Charts Row: Health Donut | System Performance (CPU/Disk/Memory now full) | Job Bar -->
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px; margin-bottom:40px;">
+        <!-- Health Donut -->
+        <div style="background:#1f2937; border-radius:16px; padding:24px;">
+            <div style="font-weight:600; color:#fff; margin-bottom:16px;">Component Health Distribution</div>
+            <canvas id="healthDonut" height="220"></canvas>
+        </div>
+        <!-- System Performance (CPU + Disk clickable, Memory segmented) -->
+        <div style="background:#1f2937; border-radius:16px; padding:24px;">
+            <div style="font-weight:600; color:#fff; margin-bottom:16px;">System Performance (Current Usage %)</div>
+            <div style="display:flex; flex-direction:column; gap:18px;">
+                <!-- CPU (clickable) -->
+                <div onclick="showCpuModal()" style="cursor:pointer;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#cbd5e1;">
+                        <span>CPU</span>
+                        <span style="font-weight:600;">{{ system_perf.cpu }}%</span>
+                    </div>
+                    <div style="height:10px; background:#334155; border-radius:9999px; overflow:hidden;">
+                        <div style="height:100%; background:#10b981; width:{{ system_perf.cpu }}%;"></div>
+                    </div>
+                </div>
+                <!-- Memory (segmented stacked bar like free -m) -->
+                <div onclick="showMemoryModal()" style="cursor:pointer;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#cbd5e1;">
+                        <span>Memory</span>
+                        <span style="font-weight:600;">{{ memory_details.used }} MB used</span>
+                    </div>
+                    <div style="height:14px; background:#334155; border-radius:9999px; overflow:hidden; display:flex;">
+                        <div style="width:{{ (memory_details.used / memory_details.total * 100) }}%; background:#ef4444;"></div>
+                        <div style="width:{{ (memory_details.buff_cache / memory_details.total * 100) }}%; background:#f59e0b;"></div>
+                        <div style="width:{{ (memory_details.free / memory_details.total * 100) }}%; background:#10b981;"></div>
+                    </div>
+                    <div style="font-size:12px; color:#cbd5e1; margin-top:4px; display:flex; justify-content:space-between;">
+                        <span>Used</span>
+                        <span>Buff/Cache</span>
+                        <span>Free</span>
+                    </div>
+                </div>
+                <!-- Disk (clickable) -->
+                <div onclick="showDiskModal()" style="cursor:pointer;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#cbd5e1;">
+                        <span>Disk</span>
+                        <span style="font-weight:600;">{{ system_perf.disk }}%</span>
+                    </div>
+                    <div style="height:10px; background:#334155; border-radius:9999px; overflow:hidden;">
+                        <div style="height:100%; background:#f59e0b; width:{{ system_perf.disk }}%;"></div>
+                    </div>
+                </div>
+                <!-- Network -->
+                <div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#cbd5e1;">
+                        <span>Network</span>
+                        <span style="font-weight:600;">{{ system_perf.network }}%</span>
+                    </div>
+                    <div style="height:10px; background:#334155; border-radius:9999px; overflow:hidden;">
+                        <div style="height:100%; background:#a78bfa; width:{{ system_perf.network }}%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Job Status Bar -->
+        <div style="background:#1f2937; border-radius:16px; padding:24px;">
+            <div style="font-weight:600; color:#fff; margin-bottom:16px;">Job Execution Status</div>
+            <canvas id="jobBar" height="220"></canvas>
+        </div>
+    </div>
+    <!-- Live Issues + Recent Jobs -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px;">
+        <!-- Live Issues -->
+        <div style="background:#1f2937; border-radius:16px; padding:24px;">
+            <div style="font-weight:600; color:#fff; margin-bottom:16px;">🚨 Live Issues & Alerts</div>
+            {% for issue in issues %}
+            <div style="padding:16px; background:#0f172a; border-radius:12px; margin-bottom:12px; border-left:4px solid {{ issue.severity_color }};">
+                <strong style="color:#e2e8f0;">{{ issue.component }}</strong>: <span style="color:#cbd5e1;">{{ issue.description }}</span>
+                <div style="font-size:13px; color:#cbd5e1; margin-top:8px;">{{ issue.time }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <!-- Recent Jobs -->
+        <div style="background:#1f2937; border-radius:16px; padding:24px;">
+            <div style="font-weight:600; color:#fff; margin-bottom:16px;">Recent Jobs</div>
+            {% for job in recent_jobs %}
+            <div style="padding:14px; background:#0f172a; border-radius:12px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+                <div style="color:#e2e8f0; font-weight:500;">{{ job.name }}</div>
+                <span style="background:{{ job.color }}; color:#fff; padding:4px 12px; border-radius:9999px; font-size:13px;">{{ job.status }}</span>
+                <div style="font-size:13px; color:#cbd5e1;">{{ job.time }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <!-- Rich Oracle Database State Tile with Performance KPIs -->
+    <div style="margin-top:32px; background:#1f2937; border-radius:16px; padding:32px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+            <div style="display:flex; align-items:center; gap:16px;">
+                <span style="font-size:36px;">🗄️</span>
+                <div>
+                    <div style="font-size:22px; font-weight:600; color:#fff;">Oracle Database</div>
+                    <div style="color:#94a3b8; font-size:15px;">{{ oracle_db_state.service_name }}</div>
+                </div>
+            </div>
+            <span style="background:#10b981; color:#fff; padding:8px 24px; border-radius:9999px; font-size:14px; font-weight:600;">{{ oracle_db_state.status }} • Healthy</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:24px;">
+            <div>
+                <div style="color:#64748b; font-size:13px;">Active Sessions</div>
+                <div style="font-size:38px; font-weight:700; color:#fff;">{{ oracle_db_state.active_sessions }}</div>
+            </div>
+            <div>
+                <div style="color:#64748b; font-size:13px;">Connection Pool</div>
+                <div style="font-size:38px; font-weight:700; color:#fff;">{{ oracle_db_state.pool_current }} / {{ oracle_db_state.pool_max }}</div>
+                <div style="height:10px; background:#334155; border-radius:9999px; margin-top:8px; overflow:hidden;">
+                    <div style="height:100%; background:#10b981; width:{{ (oracle_db_state.pool_current / oracle_db_state.pool_max * 100) }}%;"></div>
+                </div>
+            </div>
+            <div>
+                <div style="color:#64748b; font-size:13px;">Uptime</div>
+                <div style="font-size:38px; font-weight:700; color:#fff;">{{ oracle_db_state.uptime_days }}d {{ oracle_db_state.uptime_hours }}h</div>
+            </div>
+            <div>
+                <div style="color:#64748b; font-size:13px;">Version</div>
+                <div style="font-size:22px; font-weight:600; color:#e2e8f0;">{{ oracle_db_state.version }}</div>
+            </div>
+        </div>
+        <!-- Performance KPIs Row -->
+        <div style="margin-top:32px; padding-top:24px; border-top:1px solid #334155;">
+            <div style="font-size:18px; font-weight:600; color:#fff; margin-bottom:16px;">Performance KPIs</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:24px;">
+                <div>
+                    <div style="color:#64748b; font-size:13px;">DB CPU Usage</div>
+                    <div style="font-size:32px; font-weight:700; color:#10b981;">{{ oracle_db_state.db_cpu_percent }}%</div>
+                </div>
+                <div>
+                    <div style="color:#64748b; font-size:13px;">Buffer Cache Hit</div>
+                    <div style="font-size:32px; font-weight:700; color:#10b981;">{{ oracle_db_state.buffer_cache_hit }}%</div>
+                </div>
+                <div>
+                    <div style="color:#64748b; font-size:13px;">Library Cache Hit</div>
+                    <div style="font-size:32px; font-weight:700; color:#10b981;">{{ oracle_db_state.library_cache_hit }}%</div>
+                </div>
+                <div>
+                    <div style="color:#64748b; font-size:13px;">Avg Active Sessions</div>
+                    <div style="font-size:32px; font-weight:700; color:#f59e0b;">{{ oracle_db_state.aas }}</div>
+                </div>
+                <div>
+                    <div style="color:#64748b; font-size:13px;">Physical Reads/sec</div>
+                    <div style="font-size:32px; font-weight:700; color:#f59e0b;">{{ oracle_db_state.physical_reads_sec }}</div>
+                </div>
+                <div>
+                    <div style="color:#64748b; font-size:13px;">Top Wait Event</div>
+                    <div style="font-size:18px; font-weight:600; color:#e2e8f0;">{{ oracle_db_state.top_wait_event }}</div>
+                </div>
+            </div>
+        </div>
+        <div style="margin-top:28px; padding-top:20px; border-top:1px solid #334155; display:flex; gap:40px; font-size:14px;">
+            <div><strong>Role:</strong> <span style="color:#10b981;">{{ oracle_db_state.role }}</span></div>
+            <div><strong>ASM:</strong> <span style="color:#10b981;">{{ oracle_db_state.asm_status }}</span></div>
+            <div><strong>Last Startup:</strong> <span style="color:#cbd5e1;">{{ oracle_db_state.last_startup }}</span></div>
+        </div>
+    </div>
+</div>
+<!-- CPU Details Modal (scrollable) -->
+<div id="cpuModal" onclick="if(event.target.id==='cpuModal')hideCpuModal()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+    <div onclick="event.stopImmediatePropagation()" style="background:#1f2937; width:100%; max-width:620px; border-radius:20px; padding:32px; max-height:80vh; overflow-y:auto;">
+        <h3 style="margin:0 0 20px; color:#fff; font-size:24px;">CPU Details (sar -u style — 12 of 32 cores shown)</h3>
+        <table style="width:100%; border-collapse:collapse; background:#0f172a; border-radius:12px; overflow:hidden;">
+            <thead>
+                <tr style="background:#0f172a;">
+                    <th style="padding:14px 20px; text-align:left; color:#fff; font-weight:600;">Core</th>
+                    <th style="padding:14px 20px; text-align:right; color:#fff; font-weight:600;">User %</th>
+                    <th style="padding:14px 20px; text-align:right; color:#fff; font-weight:600;">System %</th>
+                    <th style="padding:14px 20px; text-align:right; color:#fff; font-weight:600;">Idle %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cpu in cpu_details %}
+                <tr style="border-bottom:1px solid #334155;">
+                    <td style="padding:14px 20px; color:#e2e8f0; font-weight:500;">{{ cpu.core }}</td>
+                    <td style="padding:14px 20px; text-align:right; color:#f59e0b; font-weight:600;">{{ cpu.user }}%</td>
+                    <td style="padding:14px 20px; text-align:right; color:#6366f1; font-weight:600;">{{ cpu.system }}%</td>
+                    <td style="padding:14px 20px; text-align:right; color:#10b981; font-weight:600;">{{ cpu.idle }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button onclick="hideCpuModal()" style="margin-top:24px; width:100%; padding:16px; background:#334155; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Close</button>
+    </div>
+</div>
+<!-- Disk Details Modal (scrollable) -->
+<div id="diskModal" onclick="if(event.target.id==='diskModal')hideDiskModal()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+    <div onclick="event.stopImmediatePropagation()" style="background:#1f2937; width:100%; max-width:720px; border-radius:20px; padding:32px; max-height:80vh; overflow-y:auto;">
+        <h3 style="margin:0 0 20px; color:#fff; font-size:24px;">Disk Details (sar -d style)</h3>
+        <table style="width:100%; border-collapse:collapse; background:#0f172a; border-radius:12px; overflow:hidden;">
+            <thead>
+                <tr style="background:#0f172a;">
+                    <th style="padding:14px 20px; text-align:left; color:#fff; font-weight:600;">Device</th>
+                    <th style="padding:14px 20px; text-align:right; color:#fff; font-weight:600;">%Util</th>
+                    <th style="padding:14px 20px; text-align:right; color:#fff; font-weight:600;">Await (ms)</th>
+                    <th style="padding:14px 20px; text-align:right; color:#fff; font-weight:600;">Read/s</th>
+                    <th style="padding:14px 20px; text-align:right; color:#fff; font-weight:600;">Write/s</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for disk in disk_details %}
+                <tr style="border-bottom:1px solid #334155;">
+                    <td style="padding:14px 20px; color:#e2e8f0; font-weight:500;">{{ disk.device }}</td>
+                    <td style="padding:14px 20px; text-align:right; color:#f59e0b; font-weight:600;">{{ disk.util }}%</td>
+                    <td style="padding:14px 20px; text-align:right; color:#cbd5e1;">{{ disk.await }}</td>
+                    <td style="padding:14px 20px; text-align:right; color:#cbd5e1;">{{ disk.r_s }}</td>
+                    <td style="padding:14px 20px; text-align:right; color:#cbd5e1;">{{ disk.w_s }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button onclick="hideDiskModal()" style="margin-top:24px; width:100%; padding:16px; background:#334155; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Close</button>
+    </div>
+</div>
+<!-- Memory Details Modal -->
+<div id="memoryModal" onclick="if(event.target.id==='memoryModal')hideMemoryModal()" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+    <div onclick="event.stopImmediatePropagation()" style="background:#1f2937; width:100%; max-width:620px; border-radius:20px; padding:32px;">
+        <h3 style="margin:0 0 20px; color:#fff; font-size:24px;">Memory Details (free -m style)</h3>
+        <table style="width:100%; border-collapse:collapse; background:#0f172a; border-radius:12px; overflow:hidden;">
+            <thead>
+                <tr style="background:#0f172a;">
+                    <th style="padding:14px 20px; text-align:left; color:#fff; font-weight:600;">Type</th>
+                    <th style="padding:14px 20px; text-align:right; color:#fff; font-weight:600;">MB</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom:1px solid #334155;">
+                    <td style="padding:14px 20px; color:#e2e8f0;">Total</td>
+                    <td style="padding:14px 20px; text-align:right; color:#fff;">{{ memory_details.total }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #334155;">
+                    <td style="padding:14px 20px; color:#e2e8f0;">Used</td>
+                    <td style="padding:14px 20px; text-align:right; color:#ef4444;">{{ memory_details.used }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #334155;">
+                    <td style="padding:14px 20px; color:#e2e8f0;">Free</td>
+                    <td style="padding:14px 20px; text-align:right; color:#10b981;">{{ memory_details.free }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #334155;">
+                    <td style="padding:14px 20px; color:#e2e8f0;">Buff/Cache</td>
+                    <td style="padding:14px 20px; text-align:right; color:#f59e0b;">{{ memory_details.buff_cache }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #334155;">
+                    <td style="padding:14px 20px; color:#e2e8f0;">Available</td>
+                    <td style="padding:14px 20px; text-align:right; color:#10b981;">{{ memory_details.available }}</td>
+                </tr>
+                <tr>
+                    <td style="padding:14px 20px; color:#e2e8f0;">Swap Used</td>
+                    <td style="padding:14px 20px; text-align:right; color:#ef4444;">{{ memory_details.swap_used }}</td>
+                </tr>
+            </tbody>
+        </table>
+        <button onclick="hideMemoryModal()" style="margin-top:24px; width:100%; padding:16px; background:#334155; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Close</button>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+function showCpuModal() { document.getElementById('cpuModal').style.display = 'flex'; }
+function hideCpuModal() { document.getElementById('cpuModal').style.display = 'none'; }
+function showDiskModal() { document.getElementById('diskModal').style.display = 'flex'; }
+function hideDiskModal() { document.getElementById('diskModal').style.display = 'none'; }
+function showMemoryModal() { document.getElementById('memoryModal').style.display = 'flex'; }
+function hideMemoryModal() { document.getElementById('memoryModal').style.display = 'none'; }
+document.addEventListener('DOMContentLoaded', function() {
+    new Chart(document.getElementById('healthDonut'), { type: 'doughnut', data: { labels: {{ health_labels | tojson }}, datasets: [{ data: {{ health_values | tojson }}, backgroundColor: ['#10b981', '#f59e0b', '#ef4444'] }] }, options: { responsive: true, cutout: '65%' } });
+    new Chart(document.getElementById('jobBar'), { type: 'bar', data: { labels: {{ job_labels | tojson }}, datasets: [{ label: 'Jobs', data: {{ job_values | tojson }}, backgroundColor: '#6366f1' }] }, options: { responsive: true } });
+});
+function refreshDashboard() { location.reload(); }
+</script>
+{% endblock %}

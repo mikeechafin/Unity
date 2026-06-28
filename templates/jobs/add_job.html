@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Add New Job{% endblock %}
+{% block page_title %}ADD NEW JOB{% endblock %}
+
+{# Version: 2026-04-02 v1.0.9 #}
+{# Changes: Full dark modern styling to exactly match Scheduled Jobs / User Management (dark backgrounds, consistent form fields, flashed messages for immediate error feedback on validation failures). #}
+
+{% block content %}
+<div class="content-wrapper">
+    <div class="section-title">Add New Job</div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('jobs.add_job') }}">
+        <div class="form-group">
+            <label for="script_name">Internal Script Name (no spaces recommended):</label>
+            <input type="text" id="script_name" name="script_name" required placeholder="e.g. refresh_agent_status">
+        </div>
+
+        <div class="form-group">
+            <label for="display_name">Display Name (friendly name — can have spaces):</label>
+            <input type="text" id="display_name" name="display_name" required placeholder="e.g. Refresh the status of all agents">
+        </div>
+
+        <div class="form-group">
+            <label for="script_path">Script Path:</label>
+            <input type="text" id="script_path" name="script_path" required placeholder="/home/maatest/.../script.py">
+        </div>
+
+        <div class="form-group">
+            <label for="script_parameters">Script Parameters (optional):</label>
+            <input type="text" id="script_parameters" name="script_parameters" placeholder="e.g. MAAMD">
+        </div>
+
+        <div class="form-group">
+            <label for="log_file">Log File Path:</label>
+            <input type="text" id="log_file" name="log_file" required placeholder="/home/maatest/.../output/script.log">
+        </div>
+
+        <div class="job-type-container">
+            <label>Job Type:</label>
+            <div class="radio-group">
+                <input type="radio" id="job_type_interval" name="job_type" value="interval" checked>
+                <label for="job_type_interval">Interval-based</label>
+                <input type="radio" id="job_type_cron" name="job_type" value="cron">
+                <label for="job_type_cron">Cron-scheduled</label>
+                <input type="radio" id="job_type_dependent" name="job_type" value="dependent">
+                <label for="job_type_dependent">Dependent</label>
+            </div>
+        </div>
+
+        <div id="schedule_interval_container" class="form-group">
+            <label for="schedule_interval">Schedule Interval (Minutes):</label>
+            <input type="number" id="schedule_interval" name="schedule_interval" min="1" value="15">
+        </div>
+
+        <div id="cron_schedule_container" class="form-group" style="display: none;">
+            <label for="cron_schedule">Cron Schedule (e.g., "30 14 * * *" for 14:30 daily):</label>
+            <input type="text" id="cron_schedule" name="cron_schedule">
+        </div>
+
+        <div id="parent_job_container" class="form-group" style="display: none;">
+            <label for="parent_job_id">Run After Job (Dependency):</label>
+            <select id="parent_job_id" name="parent_job_id">
+                <option value="">Select a parent job</option>
+                {% for ajob in available_jobs %}
+                    <option value="{{ ajob[0] }}">{{ ajob[1] }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="small-action-button primary">Add Job</button>
+            <a href="{{ url_for('jobs.scheduled_jobs') }}" class="small-action-button secondary" style="margin-left: 10px;">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const jobTypeInterval = document.getElementById('job_type_interval');
+        const jobTypeCron = document.getElementById('job_type_cron');
+        const jobTypeDependent = document.getElementById('job_type_dependent');
+        const scheduleIntervalContainer = document.getElementById('schedule_interval_container');
+        const cronScheduleContainer = document.getElementById('cron_schedule_container');
+        const parentJobContainer = document.getElementById('parent_job_container');
+
+        function toggleFields() {
+            const jobType = document.querySelector('input[name="job_type"]:checked').value;
+            scheduleIntervalContainer.style.display = jobType === 'interval' ? 'block' : 'none';
+            cronScheduleContainer.style.display = jobType === 'cron' ? 'block' : 'none';
+            parentJobContainer.style.display = jobType === 'dependent' ? 'block' : 'none';
+        }
+
+        toggleFields();
+        if (jobTypeInterval) jobTypeInterval.addEventListener('change', toggleFields);
+        if (jobTypeCron) jobTypeCron.addEventListener('change', toggleFields);
+        if (jobTypeDependent) jobTypeDependent.addEventListener('change', toggleFields);
+    });
+</script>
+
+<style>
+    .content-wrapper { max-width: 800px; margin: 0 auto; padding: 20px; background: #1e1e1e; color: #ddd; }
+    .section-title { font-size: 1.5em; margin-bottom: 20px; color: #fff; }
+    .form-group { margin-bottom: 20px; }
+    label { display: block; margin-bottom: 6px; font-weight: 600; color: #ddd; }
+    input[type="text"], input[type="number"], select {
+        width: 100%;
+        padding: 12px;
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 6px;
+        color: #ddd;
+        font-size: 1em;
+    }
+    .radio-group { display: flex; gap: 20px; margin-top: 8px; }
+    .radio-group label { font-weight: normal; color: #ddd; }
+    .small-action-button {
+        padding: 12px 24px;
+        font-size: 1em;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+    .primary { background: #28a745; color: white; border: none; }
+    .secondary { background: #6c757d; color: white; border: none; text-decoration: none; }
+    .flash { margin-bottom: 20px; padding: 14px; border-radius: 6px; font-weight: 500; }
+    .flash.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+</style>
+{% endblock %}

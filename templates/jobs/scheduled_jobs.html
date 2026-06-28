@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+{% block title %}Scheduled Jobs{% endblock %}
+{% block page_title %}SCHEDULED JOBS{% endblock %}
+
+{# Version: 2026-04-02 v1.43 #}
+{# Changes: Fixed scheduler indicator contrast (bright white text + slightly lighter dark pill background with pulsing dot). All previous pill buttons, dark theme, column widths, alphabetical sort, floating FAB, and live terminal preserved verbatim. #}
+
+{% block content %}
+<div class="content-wrapper">
+
+    <!-- Scheduler Status Indicator (high-contrast, very good looking) -->
+    <div class="scheduler-indicator">
+        <span class="status-dot {{ 'running' if scheduler_running else 'stopped' }}"></span>
+        <strong>Scheduler is {{ 'Running' if scheduler_running else 'Stopped' }}</strong>
+    </div>
+
+    <!-- Dynamic Filter -->
+    <div class="filter-bar">
+        <input type="text" id="jobFilter" placeholder="Filter jobs by name or path..." onkeyup="filterJobs()">
+    </div>
+
+    {% if jobs %}
+    <table class="modern-table" id="jobsTable">
+        <thead>
+            <tr>
+                <th style="width: 80px;">JOB ID</th>
+                <th style="width: 250px;">DISPLAY NAME</th>
+                <th style="width: 280px;">SCRIPT PATH</th>
+                <th style="width: 260px;">SCHEDULE</th>
+                <th style="width: 160px;">LAST RUN</th>
+                <th style="width: 180px;">NEXT RUN / STATUS</th>
+                <th style="width: 320px; text-align: center;">ACTIONS</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in jobs %}
+            {% if job.job_id %}
+            <tr class="job-row">
+                <td><strong>#{{ job.job_id }}</strong></td>
+                <td>{{ job.display_name }}</td>
+                <td style="font-size: 0.9em; color: #bbb; word-break: break-all;">{{ job.script_path }}</td>
+                <td>
+                    {% if job.cron_schedule %}
+                        <span class="schedule-badge cron">Cron<br><small>{{ job.cron_schedule }}</small></span>
+                    {% elif job.schedule_interval %}
+                        <span class="schedule-badge interval">Every {{ job.schedule_interval }} min</span>
+                    {% else %}
+                        <span class="schedule-badge none">N/A</span>
+                    {% endif %}
+                </td>
+                <td>{{ job.last_run | default('Never') }}</td>
+                <td>
+                    {% if job.is_running or (job.script_path and job.script_path.startswith('FUNCTION:')) %}
+                        <span class="status running">● Running</span>
+                    {% else %}
+                        {{ job.next_run | default('N/A') }}
+                    {% endif %}
+                </td>
+                <td style="white-space: nowrap; text-align: center; padding: 8px 0;">
+                    {% if not job.is_running and scheduler_running and not job.script_path_invalid %}
+                    <a href="javascript:void(0);" onclick="runJobAjax({{ job.job_id }}, '{{ job.display_name | e }}');" class="action-pill run-pill">▶ Run Now</a>
+                    {% else %}
+                    <span class="action-pill disabled-pill">▶ Run Now</span>
+                    {% endif %}
+                    <a href="{{ url_for('jobs.edit_job', job_id=job.job_id) }}" class="action-pill edit-pill">✏️ Edit</a>
+                    <a href="{{ url_for('jobs.view_log', script_name=job.script_name) }}" class="action-pill view-pill">📄 Log</a>
+                    <a href="{{ url_for('jobs.download_log', script_name=job.script_name) }}" target="_blank" class="action-pill download-pill">⬇️ DL</a>
+                    <a href="{{ url_for('jobs.job_history', job_id=job.job_id) }}" class="action-pill history-pill">📋 History</a>
+                    <form method="POST" action="{{ url_for('jobs.delete_job', job_id=job.job_id) }}" style="display: inline;" onsubmit="return confirm('Delete {{ job.display_name | e }}?');">
+                        <button type="submit" class="action-pill delete-pill">🗑️ Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p style="color: #bbb; font-style: italic; text-align: center; padding: 40px;">No scheduled jobs configured yet.</p>
+    {% endif %}
+
+    <!-- LIVE TERMINAL -->
+    <div id="live-terminal" style="display: none; margin-top: 30px; border: 1px solid #333; border-radius: 8px; background: #1e1e1e; color: #0f0; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 10px;">
+            <strong id="terminal-title" style="color: #0f0; font-size: 1.1em;">Live Output</strong>
+            <div>
+                <button onclick="refreshLiveOutput()" style="background: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em; margin-right: 8px;">Refresh Output</button>
+                <button onclick="closeTerminal()" style="background: #dc3545; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Close</button>
+            </div>
+        </div>
+        <pre id="terminal-output" style="margin: 0; padding: 12px; font-family: 'Courier New', monospace; font-size: 13px; height: 420px; overflow-y: auto; white-space: pre-wrap; background: #1e1e1e; color: #0f0; line-height: 1.4;"></pre>
+    </div>
+
+    <!-- FLOATING GREEN MENU BALL (bottom right) -->
+    <div class="fab-container">
+        <button class="fab" onclick="toggleFabMenu()" title="Actions">＋</button>
+        <div id="fab-dropdown" class="fab-dropdown">
+            <a href="{{ url_for('jobs.add_job') }}" class="fab-item">+ Add New Job</a>
+            <form action="{{ url_for('jobs.restart_scheduler') }}" method="POST" style="margin: 0;">
+                <button type="submit" class="fab-item" onclick="return confirm('Restart the scheduler now?');">🔄 Restart Scheduler</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Dynamic live filter
+    function filterJobs() {
+        const filterValue = document.getElementById('jobFilter').value.toLowerCase().trim();
+        const rows = document.querySelectorAll('#jobsTable tbody tr');
+        rows.forEach(row => {
+            const displayName = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+            const scriptPath = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+            if (displayName.includes(filterValue) || scriptPath.includes(filterValue)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    // Live terminal (preserved verbatim)
+    let currentJobId = null;
+    let currentEventSource = null;
+    let pollInterval = null;
+    let abortController = null;
+    let isRetrying = false;
+
+    function runJobAjax(jobId, displayName) {
+        openLiveTerminal(jobId, displayName);
+        fetch('/jobs/run_job/' + jobId, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status !== 'success') alert(data.message || 'Failed to trigger job');
+        })
+        .catch(() => alert('Failed to trigger job'));
+    }
+
+    function openLiveTerminal(jobId, displayName) {
+        if (currentJobId === jobId && currentEventSource) return;
+        currentJobId = jobId;
+        document.getElementById('live-terminal').style.display = 'block';
+        document.getElementById('terminal-title').textContent = 'Live Output - ' + displayName;
+        const output = document.getElementById('terminal-output');
+        output.textContent = 'Starting job...\n[Live Output Started - Job ID ' + jobId + ']\n[DEBUG] Loading full log + connecting to SSE...\n';
+        cleanupResources();
+        abortController = new AbortController();
+        fetch('/jobs/stream_job_output/' + jobId, { signal: abortController.signal })
+            .then(r => r.text())
+            .then(text => {
+                output.textContent = text + '\n[DEBUG] Full log loaded — streaming live...\n';
+                output.scrollTop = output.scrollHeight;
+            })
+            .catch(() => {});
+        currentEventSource = new EventSource('/jobs/stream_job_output/' + jobId);
+        currentEventSource.onmessage = function(event) {
+            output.textContent += event.data + '\n';
+            output.scrollTop = output.scrollHeight;
+        };
+        currentEventSource.onerror = function() {
+            output.textContent += '\n[DEBUG] SSE error — retrying once...\n';
+            output.scrollTop = output.scrollHeight;
+            if (!isRetrying) {
+                isRetrying = true;
+                setTimeout(() => {
+                    cleanupResources();
+                    openLiveTerminal(currentJobId, displayName);
+                    isRetrying = false;
+                }, 1500);
+            }
+        };
+        currentEventSource.onopen = function() {
+            output.textContent += '[DEBUG] SSE connected — real-time updates active\n';
+            output.scrollTop = output.scrollHeight;
+        };
+        pollInterval = setInterval(() => {
+            if (abortController.signal.aborted) return;
+            fetch('/jobs/stream_job_output/' + jobId, { signal: abortController.signal })
+                .then(r => r.text())
+                .then(text => {
+                    output.textContent = text + '\n';
+                    output.scrollTop = output.scrollHeight;
+                })
+                .catch(() => {});
+        }, 1500);
+    }
+
+    function cleanupResources() {
+        if (currentEventSource) { currentEventSource.close(); currentEventSource = null; }
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+        if (abortController) { abortController.abort(); abortController = null; }
+    }
+
+    function refreshLiveOutput() {
+        if (currentJobId) {
+            cleanupResources();
+            openLiveTerminal(currentJobId, document.getElementById('terminal-title').textContent.replace('Live Output - ', ''));
+        }
+    }
+
+    function closeTerminal() {
+        cleanupResources();
+        document.getElementById('live-terminal').style.display = 'none';
+        currentJobId = null;
+    }
+
+    // Floating green FAB menu
+    function toggleFabMenu() {
+        const dropdown = document.getElementById('fab-dropdown');
+        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+    }
+
+    document.addEventListener('click', function(e) {
+        const fab = document.querySelector('.fab-container');
+        if (!e.target.closest('.fab-container')) {
+            document.getElementById('fab-dropdown').style.display = 'none';
+        }
+    });
+</script>
+
+<style>
+    .modern-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        background: #1e1e1e;
+        color: #ddd;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .modern-table th, .modern-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #333;
+        text-align: left;
+        vertical-align: middle;
+    }
+    .modern-table th {
+        background-color: #2a2a2a;
+        font-weight: 600;
+        color: #fff;
+        text-transform: uppercase;
+        font-size: 0.85em;
+        letter-spacing: 0.5px;
+    }
+    .modern-table tr:hover {
+        background-color: #252525;
+    }
+    .status.running { color: #28a745; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; }
+    .schedule-badge {
+        display: inline-block;
+        width: 220px;
+        padding: 6px 12px;
+        border-radius: 9999px;
+        font-size: 0.82em;
+        font-weight: 500;
+        text-align: center;
+        white-space: nowrap;
+        line-height: 1.3;
+    }
+    .schedule-badge.cron { background: #6f42c1; color: #fff; }
+    .schedule-badge.interval { background: #007bff; color: #fff; }
+    .schedule-badge.none { background: #6c757d; color: #fff; }
+
+    /* Scheduler status indicator - HIGH CONTRAST (white text on dark pill) */
+    .scheduler-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #343a40;
+        color: #fff;
+        padding: 8px 18px;
+        border-radius: 9999px;
+        margin-bottom: 15px;
+        font-size: 1.05em;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .status-dot {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    .status-dot.running { background: #28a745; }
+    .status-dot.stopped { background: #dc3545; animation: none; }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.4; }
+        100% { opacity: 1; }
+    }
+
+    /* Dynamic filter bar */
+    .filter-bar {
+        margin-bottom: 15px;
+    }
+    #jobFilter {
+        width: 100%;
+        max-width: 420px;
+        padding: 10px 16px;
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 9999px;
+        color: #ddd;
+        font-size: 1em;
+    }
+    #jobFilter:focus {
+        outline: none;
+        border-color: #28a745;
+        box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3);
+    }
+
+    /* Per-row action pills */
+    .action-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px 12px;
+        margin: 0 3px;
+        font-size: 0.82em;
+        font-weight: 500;
+        border-radius: 9999px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        min-width: 68px;
+    }
+    .action-pill:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .run-pill { background: #28a745; color: #fff; }
+    .edit-pill { background: #ffc107; color: #212529; }
+    .view-pill, .download-pill, .history-pill { background: #17a2b8; color: #fff; }
+    .delete-pill { background: #dc3545; color: #fff; }
+    .disabled-pill {
+        background: #6c757d;
+        color: #ddd;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    /* Floating green menu ball */
+    .fab-container {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        z-index: 1000;
+    }
+    .fab {
+        width: 56px;
+        height: 56px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        font-size: 28px;
+        line-height: 52px;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .fab:hover { background: #218838; transform: scale(1.1); }
+    .fab-dropdown {
+        display: none;
+        position: absolute;
+        bottom: 70px;
+        right: 0;
+        background: #2a2a2a;
+        border: 1px solid #444;
+        border-radius: 12px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+        min-width: 220px;
+        overflow: hidden;
+    }
+    .fab-item {
+        display: block;
+        padding: 14px 20px;
+        color: #ddd;
+        text-decoration: none;
+        font-size: 1em;
+    }
+    .fab-item:hover { background: #3a3a3a; }
+</style>
+{% endblock %}

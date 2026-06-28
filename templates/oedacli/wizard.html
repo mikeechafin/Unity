@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+<!-- Filename: templates/oedacli/wizard.html -->
+<!-- Version: 2026-04-21 v2.20 - FULL COMPLETE FILE (hardened for AssertionError fix) -->
+
+{% block title %}OEDACLI Wizard{% endblock %}
+{% block page_title %}OEDACLI WIZARD{% endblock %}
+
+{% block content %}
+<style>
+/* FAB STYLING - EXACT MATCH TO MAIN OEDACLI PAGE */
+.fab-container {
+    position: fixed !important;
+    bottom: 30px !important;
+    right: 30px !important;
+    z-index: 99999 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+}
+.fab-main {
+    width: 68px !important;
+    height: 68px !important;
+    border-radius: 50% !important;
+    background: #10b981 !important;
+    color: white !important;
+    font-size: 32px !important;
+    border: none !important;
+    box-shadow: 0 6px 20px rgba(16,185,129,0.5) !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 99999 !important;
+}
+.fab-dial {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    margin-top: 12px !important;
+    opacity: 0 !important;
+    transform: translateY(20px) !important;
+    transition: all 0.3s ease !important;
+    pointer-events: none !important;
+}
+.fab-container:hover .fab-dial {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    pointer-events: auto !important;
+}
+.fab-action {
+    padding: 12px 24px !important;
+    border-radius: 9999px !important;
+    background: white !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
+    cursor: pointer !important;
+    font-size: 15px !important;
+    white-space: nowrap !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    text-decoration: none !important;
+    color: #1f2937 !important;
+}
+.fab-action:hover {
+    background: #f1f5f9 !important;
+}
+</style>
+
+<div class="setup-container" style="padding-bottom:140px; background:#fff !important; min-height:100vh !important;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="margin:0; font-size:28px; color:#1f2937;">OEDACLI Wizard</h2>
+    </div>
+
+    <!-- Active Config -->
+    <div style="background:#1f2937; padding:16px 24px; border-radius:16px; margin-bottom:24px; display:flex; align-items:center; gap:16px;">
+        <span style="color:#fff; font-weight:600; font-size:15px;">Active Config:</span>
+        <select id="active-config" style="flex:1; padding:10px 16px; border-radius:9999px; border:none; background:#374151; color:#fff; font-size:15px;" onchange="loadConfigDetails()">
+            <option value="">Select a config...</option>
+        </select>
+    </div>
+
+    <!-- Step 1: Object Type -->
+    <div style="background:#1f2937; border-radius:16px; padding:24px; margin-bottom:24px;">
+        <div style="font-size:18px; font-weight:600; color:#fff; margin-bottom:12px;">Step 1: Select Object Type</div>
+        <div class="row g-3" id="object-buttons"></div>
+    </div>
+
+    <!-- Step 2: Action -->
+    <div style="background:#1f2937; border-radius:16px; padding:24px; margin-bottom:24px;">
+        <div style="font-size:18px; font-weight:600; color:#fff; margin-bottom:12px;">Step 2: Select Action</div>
+        <div class="row g-3" id="action-buttons"></div>
+    </div>
+
+    <!-- Step 3: Parameters -->
+    <div id="parameters-section" style="background:#1f2937; border-radius:16px; padding:24px; margin-bottom:24px; display:none;">
+        <div style="font-size:18px; font-weight:600; color:#fff; margin-bottom:12px;">Step 3: Parameters</div>
+        <div id="parameters-content"></div>
+    </div>
+
+    <!-- Preview -->
+    <div style="background:#1f2937; border-radius:16px; padding:24px; margin-bottom:24px;">
+        <div style="font-size:18px; font-weight:600; color:#fff; margin-bottom:12px;">Command Preview</div>
+        <pre id="preview-content" style="white-space:pre-wrap; overflow-x:auto; max-height:200px; color:#0f0; background:#111827; font-size:15px; border-radius:12px; padding:16px; margin:0;"></pre>
+    </div>
+
+    <!-- Tabs + Output -->
+    <div id="log-tabs" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; overflow-x:auto; padding:8px 0;"></div>
+    <div class="card bg-dark text-white mb-4">
+        <div class="card-header bg-primary d-flex justify-content-between align-items-center">
+            <span id="active-tab-title">Live Terminal Output</span>
+        </div>
+        <div class="card-body p-0">
+            <div id="log-content-area" style="height:520px; overflow-y:auto; background:#111827; color:#0f0; font-family:'Courier New',monospace; font-size:14px; padding:20px; white-space:pre-wrap; line-height:1.4;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- GREEN FLOATING ACTION BALL -->
+<div class="fab-container">
+    <button id="run-button" class="fab-main" onclick="executeWizardCommand()">▶</button>
+    <div class="fab-dial">
+        <a href="{{ url_for('oedacli.oedacli_index') }}" class="fab-action">🏠 Back to Console</a>
+        <a href="{{ url_for('oedacli.oedacli_dashboard') }}" class="fab-action">📊 View Job History</a>
+        <button onclick="clearCompletedTabs()" class="fab-action">🗑 Clear Completed Tabs</button>
+    </div>
+</div>
+
+<script src="/static/socket.io.js"></script>
+<script>
+// ==================== FULL JAVASCRIPT v2.20 (HARDENED) ====================
+let selectedObject = '';
+let selectedAction = '';
+let currentConfig = null;
+let globalSocket = null;
+let logBuffers = {};
+let activeJobId = null;
+let taskToTitle = {};
+let taskStatuses = {};
+
+const objectToCommand = {
+    'CELL': 'CELLS', 'CLUSTER': 'CLUSTERS', 'DATABASE': 'DATABASES',
+    'DISKGROUP': 'DISKGROUPS', 'EXASCALE': 'EXASCALECLUSTERS', 'GUEST': 'GUESTS',
+    'ILOM': 'ILOMS', 'LOGICALVOLUME': 'LOGICALVOLUMES', 'MACHINE': 'MACHINES',
+    'NETWORK': 'NETWORKS', 'PROPERTY': 'PROPERTIES', 'RACK': 'RACKS',
+    'SCAN': 'SCANS', 'SWITCH': 'SWITCHES', 'VIP': 'VIPS', 'VOLUME': 'VOLUMES',
+    'XMLACTION': 'XMLACTIONS', 'SOFTWAREVERSION': 'SOFTWAREVERSIONS', 'STEP': 'STEPS'
+};
+
+function initSocket() {
+    if (globalSocket) return;
+    try {
+        globalSocket = io(undefined, { transports: ['websocket', 'polling'] });
+        globalSocket.onAny((eventName, ...args) => {
+            const payload = args[0] || {};
+            handleOedacliEvent(payload);
+        });
+    } catch (e) {
+        console.error("SocketIO init failed:", e);
+    }
+}
+
+function handleOedacliEvent(payload) {
+    if (!payload) return;
+    let taskId = (payload.room || payload.task_id || activeJobId || '').trim();
+    if (!taskId) return;
+    if (!logBuffers[taskId]) {
+        const title = taskToTitle[taskId] || taskId;
+        logBuffers[taskId] = [];
+        createLogTab(taskId, title);
+    }
+    if (payload.line) logBuffers[taskId].push(payload.line);
+    else if (payload.message) logBuffers[taskId].push(payload.message);
+    if (payload.status === "RUNNING") taskStatuses[taskId] = "running";
+    else if (payload.status === "FAILED") taskStatuses[taskId] = "failed";
+    else if (payload.message && payload.message.includes("return code 0")) taskStatuses[taskId] = "success";
+    updateTabColor(taskId);
+    if (activeJobId !== taskId) setActiveTab(taskId);
+    else renderActiveTab();
+}
+
+function createLogTab(jobId, title) {
+    const container = document.getElementById('log-tabs');
+    if (Array.from(container.children).some(t => t.getAttribute('data-jobid') === jobId)) return;
+    const tab = document.createElement('div');
+    tab.setAttribute('data-jobid', jobId);
+    tab.style.cssText = 'display:inline-flex;align-items:center;background:#ffc107;color:#000;padding:8px 16px;border-radius:9999px;cursor:pointer;margin-right:8px;font-size:14px;white-space:nowrap;font-weight:600;';
+    tab.innerHTML = `${title} <span id="count-${jobId}" style="margin-left:8px;background:#000;color:#fff;padding:2px 8px;border-radius:9999px;font-size:12px;">0</span> <span class="close-btn" style="margin-left:8px;color:#000;font-weight:bold;">×</span>`;
+    tab.onclick = () => setActiveTab(jobId);
+    tab.querySelector('.close-btn').addEventListener('click', function(e) {
+        e.stopImmediatePropagation();
+        closeTab(jobId);
+    });
+    container.appendChild(tab);
+    taskStatuses[jobId] = "running";
+}
+
+function updateTabColor(jobId) {
+    const tab = document.querySelector(`[data-jobid="${jobId}"]`);
+    if (!tab) return;
+    const status = taskStatuses[jobId] || "running";
+    const countEl = document.getElementById('count-' + jobId);
+    if (status === "running") { tab.style.background = "#ffc107"; tab.style.color = "#000"; if (countEl) countEl.style.background = "#000"; }
+    else if (status === "success") { tab.style.background = "#28a745"; tab.style.color = "#fff"; if (countEl) { countEl.style.background = "#fff"; countEl.style.color = "#000"; } }
+    else if (status === "failed") { tab.style.background = "#dc3545"; tab.style.color = "#fff"; if (countEl) { countEl.style.background = "#fff"; countEl.style.color = "#000"; } }
+}
+
+function setActiveTab(jobId) {
+    activeJobId = jobId;
+    renderActiveTab();
+    document.querySelectorAll('[data-jobid]').forEach(t => {
+        t.style.boxShadow = (t.getAttribute('data-jobid') === jobId) ? "0 0 0 3px #0d6efd" : "none";
+    });
+}
+
+function renderActiveTab() {
+    if (!activeJobId || !logBuffers[activeJobId]) return;
+    const area = document.getElementById('log-content-area');
+    area.innerHTML = '';
+    (logBuffers[activeJobId] || []).forEach(line => {
+        const div = document.createElement('div');
+        div.textContent = line || ' ';
+        area.appendChild(div);
+    });
+    area.scrollTop = area.scrollHeight;
+}
+
+function closeTab(jobId) {
+    delete logBuffers[jobId]; delete taskToTitle[jobId]; delete taskStatuses[jobId];
+    if (activeJobId === jobId) activeJobId = null;
+    const tabs = document.getElementById('log-tabs');
+    const toRemove = Array.from(tabs.children).find(t => t.getAttribute('data-jobid') === jobId);
+    if (toRemove) toRemove.remove();
+    document.getElementById('log-content-area').innerHTML = '<div style="color:#666;text-align:center;padding:40px;">No logs yet.</div>';
+}
+
+function loadConfigs() {
+    fetch('{{ url_for("oedacli.api_configs") }}')
+        .then(r => r.json())
+        .then(data => {
+            const select = document.getElementById('active-config');
+            select.innerHTML = '<option value="">Select a config...</option>';
+            (data.configs || []).forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = `${c.name} (${c.created || '—'})`;
+                select.appendChild(opt);
+            });
+        });
+}
+
+async function loadConfigDetails() {
+    const configId = document.getElementById('active-config').value;
+    if (!configId) { currentConfig = null; return; }
+    try {
+        const res = await fetch(`{{ url_for('oedacli.api_configs') }}?id=${configId}`);
+        const data = await res.json();
+        currentConfig = data.config || null;
+    } catch (e) { currentConfig = null; }
+}
+
+function renderObjectButtons() {
+    const container = document.getElementById('object-buttons');
+    container.innerHTML = '';
+    Object.keys(objectToCommand).forEach(obj => {
+        const btn = document.createElement('button');
+        btn.className = 'object-btn';
+        btn.style.cssText = 'min-width:160px; min-height:48px; padding:12px 24px; font-size:15px; font-weight:600; border-radius:9999px; border:none; color:#fff; background:#0d6efd; margin:6px; white-space:nowrap;';
+        btn.textContent = obj;
+        btn.onclick = () => {
+            selectedObject = obj;
+            renderActionButtons();
+            updatePreview();
+            document.getElementById('parameters-section').style.display = 'none';
+        };
+        container.appendChild(btn);
+    });
+}
+
+function renderActionButtons() {
+    const container = document.getElementById('action-buttons');
+    container.innerHTML = '';
+    if (!selectedObject) return;
+    const actions = getActionsForObject(selectedObject);
+    actions.forEach(act => {
+        const btn = document.createElement('button');
+        btn.className = 'action-btn';
+        btn.style.cssText = 'min-width:160px; min-height:48px; padding:12px 24px; font-size:15px; font-weight:600; border-radius:9999px; border:none; color:#fff; background:#0d6efd; margin:6px; white-space:nowrap;';
+        btn.textContent = act;
+        btn.onclick = () => {
+            selectedAction = act;
+            updatePreview();
+            renderParametersSection();
+        };
+        container.appendChild(btn);
+    });
+}
+
+function getActionsForObject(obj) {
+    if (['GUEST', 'EXASCALE'].includes(obj)) return ['LIST', 'CREATE', 'CLONE', 'MIGRATE', 'DELETE'];
+    if (['SSHKEY', 'RSAKEY'].includes(obj)) return ['GENERATE', 'DEPLOY', 'SET'];
+    return ['LIST', 'ADD', 'ALTER', 'DELETE'];
+}
+
+function renderParametersSection() {
+    const section = document.getElementById('parameters-section');
+    const content = document.getElementById('parameters-content');
+    content.innerHTML = '';
+    section.style.display = 'block';
+    const cmd = `${selectedAction} ${objectToCommand[selectedObject] || selectedObject}`;
+    let html = `<div style="color:#ccc; margin-bottom:16px;">Command: <strong style="color:#0f0;">${cmd}</strong></div>`;
+    if (selectedAction === 'LIST') {
+        html += `<div style="color:#0f0; padding:12px 0;">No additional parameters required.</div>`;
+    }
+    else if (selectedAction === 'ADD' && selectedObject === 'CELL') {
+        html += `
+            <div style="margin-bottom:14px;">
+                <label style="color:#fff; display:block; margin-bottom:6px;">Hostname <span style="color:#f87171;">*</span></label>
+                <input id="param-hostname" type="text" placeholder="e.g. scaqal05celadm04.us.oracle.com" style="width:100%; padding:10px; border-radius:8px; background:#374151; color:#fff; border:none;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="color:#fff; display:block; margin-bottom:6px;">Management IP <span style="color:#f87171;">*</span></label>
+                <input id="param-ip" type="text" placeholder="e.g. 10.32.226.200" style="width:100%; padding:10px; border-radius:8px; background:#374151; color:#fff; border:none;">
+            </div>
+        `;
+    }
+    else if (selectedAction === 'ALTER' && selectedObject === 'MACHINE') {
+        html += `
+            <div style="margin-bottom:14px;">
+                <label style="color:#fff; display:block; margin-bottom:6px;">Machine Name <span style="color:#f87171;">*</span></label>
+                <select id="param-name" style="width:100%; padding:10px; border-radius:8px; background:#374151; color:#fff; border:none;">
+                    <option value="">-- Select Machine --</option>
+                </select>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="color:#fff; display:block; margin-bottom:6px;">New Rack Name (optional)</label>
+                <input id="param-rack" type="text" placeholder="e.g. Quarter Rack" style="width:100%; padding:10px; border-radius:8px; background:#374151; color:#fff; border:none;">
+            </div>
+        `;
+    }
+    else if (selectedAction === 'CREATE' && selectedObject === 'GUEST') {
+        html += `
+            <div style="margin-bottom:14px;">
+                <label style="color:#fff; display:block; margin-bottom:6px;">Guest Name <span style="color:#f87171;">*</span></label>
+                <input id="param-guest-name" type="text" placeholder="e.g. scaqal05adm01vm04" style="width:100%; padding:10px; border-radius:8px; background:#374151; color:#fff; border:none;">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="color:#fff; display:block; margin-bottom:6px;">Target Database Server <span style="color:#f87171;">*</span></label>
+                <select id="param-target-db" style="width:100%; padding:10px; border-radius:8px; background:#374151; color:#fff; border:none;">
+                    <option value="">-- Select Database Server --</option>
+                </select>
+            </div>
+        `;
+    }
+    else if (selectedAction === 'MIGRATE' && selectedObject === 'GUEST') {
+        html += `
+            <div style="margin-bottom:14px;">
+                <label style="color:#fff;">Source Guest <span style="color:#f87171;">*</span></label>
+                <select id="param-from" style="width:100%; padding:10px; border-radius:8px; background:#374151; color:#fff; border:none; margin-bottom:10px;">
+                    <option value="">-- Select Guest --</option>
+                </select>
+                <label style="color:#fff;">Destination Host <span style="color:#f87171;">*</span></label>
+                <input id="param-to" type="text" placeholder="e.g. scaqal05adm02.us.oracle.com" style="width:100%; padding:10px; border-radius:8px; background:#374151; color:#fff; border:none;">
+            </div>
+        `;
+    }
+    else {
+        html += `
+            <div style="margin-bottom:14px;">
+                <label style="color:#fff;">Additional Parameters</label>
+                <textarea id="param-custom" rows="4" placeholder="Enter full parameters here..." style="width:100%; padding:10px; border-radius:8px; background:#374151; color:#fff; border:none; font-family:monospace;"></textarea>
+            </div>
+        `;
+    }
+    content.innerHTML = html;
+    if (currentConfig && currentConfig.members) {
+        setTimeout(() => populateSmartDropdowns(), 100);
+    }
+}
+
+function populateSmartDropdowns() {
+    const members = currentConfig.members || [];
+    const cells = members.filter(m => m.type === 'Storage Server').map(m => m.management_hostname);
+    const guests = members.filter(m => m.type === 'Guest').map(m => m.management_hostname);
+    const dbs = members.filter(m => m.type === 'Database Server').map(m => m.management_hostname);
+    const selects = {
+        'param-name': dbs,
+        'param-target': cells,
+        'param-from': guests,
+        'param-target-db': dbs
+    };
+    Object.keys(selects).forEach(id => {
+        const select = document.getElementById(id);
+        if (select && selects[id].length > 0) {
+            let options = `<option value="">-- Select --</option>`;
+            selects[id].forEach(item => {
+                options += `<option value="${item}">${item}</option>`;
+            });
+            select.innerHTML = options;
+        }
+    });
+}
+
+function updatePreview() {
+    const preview = document.getElementById('preview-content');
+    if (!selectedObject || !selectedAction) {
+        preview.textContent = `<es>...</es>`;
+        return;
+    }
+    const cmd = `${selectedAction} ${objectToCommand[selectedObject] || selectedObject}`;
+    preview.textContent = `<es>\n ${cmd}\n</es>`;
+}
+
+function executeWizardCommand() {
+    if (!selectedObject || !selectedAction) {
+        alert('Please complete Steps 1 and 2');
+        return;
+    }
+    const configId = document.getElementById('active-config').value;
+    if (!configId) {
+        alert('Please select an Active Config');
+        return;
+    }
+    let finalCommand = `${selectedAction} ${objectToCommand[selectedObject] || selectedObject}`;
+    const hostname = document.getElementById('param-hostname')?.value;
+    const ip = document.getElementById('param-ip')?.value;
+    const name = document.getElementById('param-name')?.value;
+    const rack = document.getElementById('param-rack')?.value;
+    const guestName = document.getElementById('param-guest-name')?.value;
+    const targetDb = document.getElementById('param-target-db')?.value;
+    const from = document.getElementById('param-from')?.value;
+    const to = document.getElementById('param-to')?.value;
+    const custom = document.getElementById('param-custom')?.value?.trim();
+    if (hostname && ip) finalCommand += ` hostname=${hostname} ip=${ip}`;
+    if (name) finalCommand += ` name=${name}`;
+    if (rack) finalCommand += ` rack=${rack}`;
+    if (guestName && targetDb) finalCommand += ` name=${guestName} target=${targetDb}`;
+    if (from && to) finalCommand += ` from=${from} to=${to}`;
+    if (custom) finalCommand += ` ${custom}`;
+    const payload = { commands: [finalCommand], config_id: parseInt(configId), dry_run: false };
+    fetch('{{ url_for("oedacli.execute_oedacli_action") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success && data.task_id) {
+            taskToTitle[data.task_id] = finalCommand;
+            createLogTab(data.task_id, taskToTitle[data.task_id]);
+            setActiveTab(data.task_id);
+            if (globalSocket) globalSocket.emit('join', { room: data.task_id });
+        } else {
+            alert('Failed to start execution: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(() => alert('Network error'));
+}
+
+function clearCompletedTabs() {
+    const tabs = document.getElementById('log-tabs');
+    const children = Array.from(tabs.children);
+    children.forEach(tab => {
+        const jobId = tab.getAttribute('data-jobid');
+        if (taskStatuses[jobId] === 'success' || taskStatuses[jobId] === 'failed') {
+            delete logBuffers[jobId];
+            delete taskToTitle[jobId];
+            delete taskStatuses[jobId];
+            tab.remove();
+        }
+    });
+    if (activeJobId && !document.querySelector(`[data-jobid="${activeJobId}"]`)) {
+        activeJobId = null;
+        document.getElementById('log-content-area').innerHTML = '<div style="color:#666;text-align:center;padding:40px;">No logs yet.</div>';
+    }
+}
+
+window.onload = function() {
+    initSocket();
+    loadConfigs();
+    renderObjectButtons();
+    console.log('%c[Wizard] v2.20 - Full file with hardened SocketIO', 'color:#0f0');
+};
+</script>
+{% endblock %}

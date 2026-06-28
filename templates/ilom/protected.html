@@ -1,0 +1,96 @@
+<!-- Version: 2026-04-04 v1.00 -->
+<!-- Changes: Migrated to new dark unified format matching other ILOM/switch pages (setup-container, dark component-table, green FAB). Modernized form and table styling while keeping original logic. -->
+{% extends "base.html" %}
+
+{% block title %}Manage Protected Entries{% endblock %}
+{% block page_title %}MANAGE PROTECTED ENTRIES{% endblock %}
+
+{% block content %}
+<div class="setup-container" style="padding-bottom: 140px; max-width:800px; margin:0 auto;">
+
+    <h2 style="margin:0 0 20px; font-size:24px; color:#fff;">Manage Ignore Strings</h2>
+    <form method="POST" action="" style="background:#1f2937; padding:32px; border-radius:20px; margin-bottom:40px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+            <div>
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">HOSTNAME</label>
+                <input type="text" id="type" name="type" style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+            </div>
+            <div>
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">EXCLUDE STRING</label>
+                <input type="text" id="value" name="value" style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+            </div>
+        </div>
+        <button type="submit" name="add" style="margin-top:24px; padding:16px 32px; background:#10b981; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Add Entry</button>
+    </form>
+
+    <h2 style="margin:0 0 20px; font-size:24px; color:#fff;">Current Entries</h2>
+    <div class="table-wrapper" style="border:1px solid #334155; border-radius:12px; background:#111827; box-shadow:0 4px 15px rgba(0,0,0,0.3);">
+        <table class="component-table" style="width:100%; table-layout:fixed; background:#111827; border-collapse:collapse;">
+            <thead style="position:sticky; top:0; z-index:10; background:#0f172a;">
+                <tr style="background:#0f172a; color:#f1f5f9;">
+                    <th style="padding:18px 24px; text-align:left;">HOSTNAME</th>
+                    <th style="padding:18px 24px; text-align:left;">EXCLUDE STRING</th>
+                    <th style="padding:18px 24px; text-align:left;">CREATED BY</th>
+                    <th style="padding:18px 24px; text-align:center; width:140px;">ACTIONS</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in protected %}
+                <tr style="background:#1f2937; color:#e2e8f0; border-bottom:1px solid #334155;">
+                    <td style="padding:20px 24px;">{{ entry[0] }}</td>
+                    <td style="padding:20px 24px;">{{ entry[1] }}</td>
+                    <td style="padding:20px 24px;">{{ entry[2] }}</td>
+                    <td style="padding:20px 24px; text-align:center;">
+                        <form method="POST" action="" style="display:inline;">
+                            <input type="hidden" name="id" value="{{ entry[0] }}">
+                            <button type="submit" name="delete" style="background:#ef4444; color:#fff; width:36px; height:36px; border-radius:9999px; border:none; cursor:pointer;">🗑️</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not protected %}
+                <tr>
+                    <td colspan="4" style="padding:60px; text-align:center; color:#64748b;">No protected entries found.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Floating Green Ball FAB -->
+<button onclick="toggleFabMenu()" class="fab-button"
+        style="position:fixed; bottom:120px; right:40px; width:64px; height:64px; background:#10b981; border:none; border-radius:9999px; color:#fff; font-size:28px; box-shadow:0 10px 30px rgba(16,185,129,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; cursor:pointer;">
+    +
+</button>
+
+<!-- FAB Menu -->
+<div id="fabMenu" style="display:none; position:fixed; bottom:200px; right:40px; background:#1f2937; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; min-width:200px; z-index:1001;">
+    <a onclick="location.reload(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">⟳ Refresh Now</a>
+</div>
+
+<script>
+function toggleFabMenu() {
+    const menu = document.getElementById('fabMenu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+    const fabMenu = document.getElementById('fabMenu');
+    if (fabMenu.style.display === 'block' && !e.target.closest('.fab-button') && !e.target.closest('#fabMenu')) {
+        fabMenu.style.display = 'none';
+    }
+});
+</script>
+
+<style>
+.fab-button:hover { transform: scale(1.1); }
+#fabMenu a { display:block; padding:14px 24px; color:#fff; text-decoration:none; }
+#fabMenu a:hover { background:#334155; }
+.component-table th, .component-table td { padding:18px 24px; border-bottom:1px solid #334155; }
+.component-table tr:hover { background:#1e2937 !important; }
+.component-table th { background:#0f172a !important; color:#f1f5f9 !important; font-weight:600; }
+.table-wrapper::-webkit-scrollbar { width:8px; height:8px; }
+.table-wrapper::-webkit-scrollbar-thumb { background:#475569; border-radius:4px; }
+.table-wrapper::-webkit-scrollbar-track { background:#1f2937; }
+</style>
+{% endblock %}

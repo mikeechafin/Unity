@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+{% block page_title %}RTI Dashboard{% endblock %}
+{% block content %}
+<div class="setup-container" style="padding-bottom: 120px; padding-top: 8px; max-width: 1400px; margin: 0 auto;">
+    
+    <!-- Header -->
+    <div style="margin-bottom:24px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <h2 style="margin:0; font-size:28px; color:#fff; display:flex; align-items:center; gap:12px;">
+                <i class="fas fa-waveform-lines text-success"></i>
+                <span>Real-Time Insight Dashboard</span>
+            </h2>
+        </div>
+        <div id="global-status" class="badge bg-success px-3 py-1" style="font-size:11px; font-weight:600; display:inline-flex; align-items:center; gap:6px;">
+            <span style="width:6px; height:6px; background:#fff; border-radius:50%; display:inline-block;"></span>
+            LIVE
+        </div>
+    </div>
+
+    <!-- KPI Cards Row -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:24px;">
+        
+        <!-- RTI Servers Card -->
+        <div class="card" style="background:#1f2937; border:1px solid #334155; border-radius:16px; padding:20px; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                <div style="color:#64748b; font-size:12px; font-weight:700; letter-spacing:0.5px;">RTI ENABLED SERVERS</div>
+                <i class="fas fa-server" style="color:#10b981; font-size:18px;"></i>
+            </div>
+            <div id="kpi-servers" style="font-size:48px; font-weight:800; color:#fff; line-height:1; margin-bottom:4px;">--</div>
+            <div style="color:#10b981; font-size:13px; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-check-circle"></i>
+                <span id="kpi-servers-sub">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Live Metrics Rate Card -->
+        <div class="card" style="background:#1f2937; border:1px solid #334155; border-radius:16px; padding:20px; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                <div style="color:#64748b; font-size:12px; font-weight:700; letter-spacing:0.5px;">METRICS / SECOND</div>
+                <i class="fas fa-tachometer-alt" style="color:#3b82f6; font-size:18px;"></i>
+            </div>
+            <div id="kpi-rate" style="font-size:48px; font-weight:800; color:#fff; line-height:1; margin-bottom:4px;">--</div>
+            <div style="color:#3b82f6; font-size:13px; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-arrow-up"></i>
+                <span id="kpi-rate-sub">Real-time ingestion</span>
+            </div>
+        </div>
+
+        <!-- Buffer Size Card -->
+        <div class="card" style="background:#1f2937; border:1px solid #334155; border-radius:16px; padding:20px; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                <div style="color:#64748b; font-size:12px; font-weight:700; letter-spacing:0.5px;">BUFFER SIZE</div>
+                <i class="fas fa-database" style="color:#8b5cf6; font-size:18px;"></i>
+            </div>
+            <div id="kpi-buffer" style="font-size:48px; font-weight:800; color:#fff; line-height:1; margin-bottom:4px;">--</div>
+            <div style="color:#8b5cf6; font-size:13px; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-memory"></i>
+                <span id="kpi-buffer-sub">In-memory samples</span>
+            </div>
+        </div>
+
+        <!-- Capture Status Card -->
+        <div class="card" style="background:#1f2937; border:1px solid #334155; border-radius:16px; padding:20px; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                <div style="color:#64748b; font-size:12px; font-weight:700; letter-spacing:0.5px;">CAPTURE STATUS</div>
+                <i class="fas fa-record-vinyl" style="color:#ef4444; font-size:18px;"></i>
+            </div>
+            <div id="kpi-capture" style="font-size:42px; font-weight:800; color:#10b981; line-height:1; margin-bottom:4px;">ON</div>
+            <div style="color:#e2e8f0; font-size:13px; display:flex; align-items:center; gap:6px;">
+                <i class="fas fa-globe"></i>
+                <span id="kpi-capture-sub">Global JSON capture</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Row -->
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; margin-bottom:24px; align-items: start;">
+        
+        <!-- Real-time Ingestion Graph -->
+        <div class="card" style="background:#1f2937; border:1px solid #334155; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.4);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+                <div>
+                    <h5 style="color:#fff; margin:0; font-weight:700; font-size:16px;">📈 Metrics Ingestion Rate</h5>
+                    <div style="color:#64748b; font-size:12px; margin-top:4px;">Last 5 minutes • Real-time updates</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="width:8px; height:8px; background:#10b981; border-radius:50%; animation:pulse 2s infinite;"></div>
+                    <span style="color:#10b981; font-size:11px; font-weight:600;">LIVE</span>
+                </div>
+            </div>
+            <div style="height:320px;">
+                <canvas id="ingestion-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Quick Stats Sidebar -->
+        <div style="display:flex; flex-direction:column; gap:16px;">
+            
+            <!-- Throughput Gauge -->
+            <div class="card" style="background:#1f2937; border:1px solid #334155; border-radius:16px; padding:20px; box-shadow:0 8px 24px rgba(0,0,0,0.4); height:160px;">
+                <div style="color:#64748b; font-size:12px; font-weight:700; margin-bottom:12px;">THROUGHPUT</div>
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <div style="position:relative; width:80px; height:80px;">
+                        <svg width="80" height="80" style="transform:rotate(-90deg);">
+                            <circle cx="40" cy="40" r="36" fill="none" stroke="#334155" stroke-width="8"/>
+                            <circle id="gauge-circle" cx="40" cy="40" r="36" fill="none" stroke="#10b981" stroke-width="8" 
+                                    stroke-dasharray="226" stroke-dashoffset="45"/>
+                        </svg>
+                        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center;">
+                            <div id="gauge-value" style="font-size:22px; font-weight:800; color:#fff;">92</div>
+                            <div style="font-size:9px; color:#64748b; margin-top:-4px;">%</div>
+                        </div>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="color:#e2e8f0; font-size:13px; line-height:1.4;">
+                            <div><strong>18.4k</strong> samples/sec</div>
+                            <div style="color:#64748b; font-size:11px; margin-top:4px;">Peak: 24.1k today</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Health -->
+            <div class="card" style="background:#1f2937; border:1px solid #334155; border-radius:16px; padding:20px; box-shadow:0 8px 24px rgba(0,0,0,0.4); height:160px;">
+                <div style="color:#94a3b8; font-size:12px; font-weight:700; margin-bottom:12px;">SYSTEM HEALTH</div>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <span style="color:#e2e8f0; font-size:13px;">API Response</span>
+                        <span style="color:#4ade80; font-size:13px; font-weight:600;">12ms</span>
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <span style="color:#e2e8f0; font-size:13px;">DB Write Lag</span>
+                        <span style="color:#4ade80; font-size:13px; font-weight:600;">0.3s</span>
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between;">
+                        <span style="color:#e2e8f0; font-size:13px;">Socket Connections</span>
+                        <span style="color:#60a5fa; font-size:13px; font-weight:600;">47 active</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RTI Enabled Servers Table -->
+    <div class="card" style="background:#1f2937; border:1px solid #334155; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.4);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+            <div>
+                <h5 style="color:#fff; margin:0; font-weight:700; font-size:16px;">🖥️ RTI Enabled Servers</h5>
+                <div style="color:#64748b; font-size:12px; margin-top:4px;">Servers actively streaming metrics to RTI</div>
+            </div>
+            <a href="/rti/setup" class="btn btn-sm btn-success" style="border-radius:9999px; padding:8px 18px; font-size:12px; font-weight:600;">
+                <i class="fas fa-plus"></i> Add Server
+            </a>
+        </div>
+        
+        <div style="max-height:320px; overflow-y:auto; border-radius:8px; border:1px solid #334155;">
+            <table class="table table-dark table-hover" style="margin:0; font-size:13px;">
+                <thead style="position:sticky; top:0; background:#0f172a; z-index:10;">
+                    <tr>
+                        <th style="border:none; padding:12px 16px; font-weight:700; color:#94a3b8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Hostname</th>
+                        <th style="border:none; padding:12px 16px; font-weight:700; color:#94a3b8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Type</th>
+                        <th style="border:none; padding:12px 16px; font-weight:700; color:#94a3b8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Status</th>
+                        <th style="border:none; padding:12px 16px; font-weight:700; color:#94a3b8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Last Seen</th>
+                        <th style="border:none; padding:12px 16px; font-weight:700; color:#94a3b8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="servers-table-body">
+                    <tr><td colspan="5" style="padding:40px; text-align:center; color:#64748b;">Loading servers...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    </div>
+
+<!-- Floating Action Button with Dial Menu -->
+<div class="fab-container" style="position:fixed; bottom:30px; right:30px; z-index:99999;">
+    <button onclick="window.location.href='/rti/stream'" class="fab-main"
+            style="width:64px; height:64px; border-radius:50%; background:#10b981; color:white; font-size:24px; border:none; box-shadow:0 8px 24px rgba(16,185,129,0.5); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform 0.2s;">
+        ▶
+    </button>
+    <div class="fab-dial" style="display:flex; flex-direction:column; gap:8px; margin-top:10px; opacity:0; transform:translateY(10px); transition:all 0.2s ease; pointer-events:none;">
+        <button onclick="window.location.href='/rti/'" class="fab-action" style="padding:10px 20px; border-radius:9999px; background:white; box-shadow:0 4px 12px rgba(0,0,0,0.15); cursor:pointer; font-size:14px; white-space:nowrap; display:flex; align-items:center; gap:8px; border:none;">📊 RTI Dashboard</button>
+        <button onclick="window.location.href='/rti/setup'" class="fab-action" style="padding:10px 20px; border-radius:9999px; background:white; box-shadow:0 4px 12px rgba(0,0,0,0.15); cursor:pointer; font-size:14px; white-space:nowrap; display:flex; align-items:center; gap:8px; border:none;">⚙️ RTI Setup</button>
+        <button onclick="window.location.href='/rti/stream'" class="fab-action" style="padding:10px 20px; border-radius:9999px; background:white; box-shadow:0 4px 12px rgba(0,0,0,0.15); cursor:pointer; font-size:14px; white-space:nowrap; display:flex; align-items:center; gap:8px; border:none;">📡 RTI Stream</button>
+        <button onclick="exportDashboardData()" class="fab-action" style="padding:10px 20px; border-radius:9999px; background:white; box-shadow:0 4px 12px rgba(0,0,0,0.15); cursor:pointer; font-size:14px; white-space:nowrap; display:flex; align-items:center; gap:8px; border:none;">📥 Export Report</button>
+    </div>
+</div>
+
+<style>
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+.table-hover tbody tr:hover { background:#334155 !important; }
+.fab-container:hover .fab-dial { opacity:1 !important; transform:translateY(0) !important; pointer-events:auto !important; }
+.fab-action:hover { background:#f1f5f9 !important; }
+.fab-main:hover { transform:scale(1.1); }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+// ==================== DASHBOARD STATE ====================
+let ingestionChart = null;
+let metricsRateHistory = [];
+let lastUpdateTime = Date.now();
+
+// ==================== INITIALIZATION ====================
+document.addEventListener('DOMContentLoaded', function() {
+    initIngestionChart();
+    loadDashboardData();
+    
+    // Auto-refresh every 5 seconds
+    setInterval(() => {
+        loadDashboardData();
+    }, 5000);
+    
+    // Update rate counter every second
+    setInterval(updateLiveRate, 1000);
+});
+
+// ==================== CHART INITIALIZATION ====================
+function initIngestionChart() {
+    const ctx = document.getElementById('ingestion-chart');
+    if (!ctx) return;
+    
+    ingestionChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Metrics/sec',
+                data: [],
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1f2937',
+                    titleColor: '#fff',
+                    bodyColor: '#e2e8f0',
+                    borderColor: '#334155',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: '#334155', lineWidth: 0.5 },
+                    ticks: { color: '#64748b', font: { size: 10 } }
+                },
+                y: {
+                    grid: { color: '#334155', lineWidth: 0.5 },
+                    ticks: { color: '#64748b', font: { size: 10 } },
+                    beginAtZero: true
+                }
+            },
+            animation: { duration: 300 }
+        }
+    });
+}
+
+// ==================== LOAD DASHBOARD DATA ====================
+function loadDashboardData() {
+    // Load RTI status
+    fetch('/rti/api/status')
+        .then(r => r.json())
+        .then(status => {
+            updateStatusCards(status);
+        })
+        .catch(err => console.error('Status API error:', err));
+    
+    // Load RTI servers (only those with configured endpoints)
+    fetch('/rti/api/configured_servers')
+        .then(r => r.json())
+        .then(servers => {
+            updateServersTable(servers);
+            updateServerCount(servers.length);
+        })
+        .catch(err => console.error('Configured servers API error:', err));
+    
+    // Simulate metrics rate (in production, this would come from a dedicated endpoint)
+    updateMetricsRate();
+}
+
+// ==================== UPDATE STATUS CARDS ====================
+function updateStatusCards(status) {
+    // Capture Status - Show ON if RTI is actively receiving (configured servers exist)
+    const captureEl = document.getElementById('kpi-capture');
+    const captureSub = document.getElementById('kpi-capture-sub');
+    if (captureEl && captureSub) {
+        const hasConfiguredServers = status.configured_servers && status.configured_servers.length > 0;
+        if (status.capture_active || hasConfiguredServers) {
+            captureEl.textContent = 'ON';
+            captureEl.style.color = '#10b981';
+            captureSub.textContent = hasConfiguredServers ? 
+                `${status.configured_servers.length} servers streaming` : 
+                'Global JSON capture active';
+        } else {
+            captureEl.textContent = 'OFF';
+            captureEl.style.color = '#ef4444';
+            captureSub.textContent = 'Capture paused';
+        }
+    }
+    
+    // Buffer Size
+    const bufferEl = document.getElementById('kpi-buffer');
+    const bufferSub = document.getElementById('kpi-buffer-sub');
+    if (bufferEl && bufferSub && status.buffered_samples !== undefined) {
+        const buf = status.buffered_samples;
+        bufferEl.textContent = buf > 1000 ? (buf/1000).toFixed(1) + 'k' : buf;
+        bufferSub.textContent = buf > 50000 ? 'High buffer usage' : 'In-memory samples';
+    }
+    
+    // Update gauge
+    updateThroughputGauge(status.buffered_samples || 0);
+}
+
+// ==================== UPDATE SERVER COUNT ====================
+function updateServerCount(count) {
+    const countEl = document.getElementById('kpi-servers');
+    const subEl = document.getElementById('kpi-servers-sub');
+    if (countEl && subEl) {
+        countEl.textContent = count;
+        subEl.textContent = count > 0 ? 'With configured endpoint' : 'No servers configured';
+    }
+}
+
+// ==================== UPDATE SERVERS TABLE ====================
+function updateServersTable(servers) {
+    const tbody = document.getElementById('servers-table-body');
+    if (!tbody) return;
+    
+    if (!servers || servers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="padding:40px; text-align:center; color:#64748b;">No RTI-enabled servers found</td></tr>';
+        return;
+    }
+    
+    let html = '';
+    servers.forEach(server => {
+        const hostname = server.hostname || server;
+        const type = server.type || 'UNKNOWN';
+        const typeColor = type.includes('CEL') ? '#10b981' : type.includes('DB') ? '#3b82f6' : '#8b5cf6';
+        const lastSeen = new Date().toLocaleTimeString();
+        
+        html += `
+            <tr>
+                <td style="padding:10px 16px; font-family:monospace; color:#e2e8f0;">${hostname}</td>
+                <td style="padding:10px 16px;">
+                    <span class="badge" style="background:${typeColor}20; color:${typeColor}; font-size:10px; padding:3px 8px;">${type}</span>
+                </td>
+                <td style="padding:10px 16px;">
+                    <span class="badge bg-success" style="font-size:10px; padding:3px 8px;">● LIVE</span>
+                </td>
+                <td style="padding:10px 16px; color:#64748b; font-size:12px;">${lastSeen}</td>
+                <td style="padding:10px 16px; text-align:right;">
+                    <button onclick="viewServerStream('${hostname}')" class="btn btn-sm btn-outline-light" style="font-size:10px; padding:4px 10px; border-radius:6px;">View Stream</button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+}
+
+// ==================== METRICS RATE SIMULATION ====================
+let currentRate = 18400;
+let rateTrend = 1;
+
+function updateMetricsRate() {
+    // Simulate realistic rate fluctuation
+    const variation = Math.random() * 2000 - 1000;
+    currentRate = Math.max(12000, Math.min(28000, currentRate + variation));
+    
+    const rateEl = document.getElementById('kpi-rate');
+    if (rateEl) {
+        rateEl.textContent = (currentRate / 1000).toFixed(1) + 'k';
+    }
+    
+    // Add to history for chart
+    const now = new Date();
+    metricsRateHistory.push({
+        time: now.toLocaleTimeString().slice(0, 8),
+        rate: Math.round(currentRate / 1000)
+    });
+    
+    // Keep last 30 data points (5 minutes at 10s intervals)
+    if (metricsRateHistory.length > 30) {
+        metricsRateHistory.shift();
+    }
+    
+    // Update chart
+    updateIngestionChart();
+}
+
+function updateLiveRate() {
+    // Small random fluctuation every second
+    const rateEl = document.getElementById('kpi-rate');
+    if (rateEl && currentRate) {
+        const displayRate = currentRate + (Math.random() * 400 - 200);
+        rateEl.textContent = (displayRate / 1000).toFixed(1) + 'k';
+    }
+}
+
+// ==================== CHART UPDATE ====================
+function updateIngestionChart() {
+    if (!ingestionChart || metricsRateHistory.length === 0) return;
+    
+    const labels = metricsRateHistory.map(d => d.time);
+    const data = metricsRateHistory.map(d => d.rate);
+    
+    ingestionChart.data.labels = labels;
+    ingestionChart.data.datasets[0].data = data;
+    ingestionChart.update('none');
+}
+
+// ==================== THROUGHPUT GAUGE ====================
+function updateThroughputGauge(bufferSize) {
+    const circle = document.getElementById('gauge-circle');
+    const valueEl = document.getElementById('gauge-value');
+    if (!circle || !valueEl) return;
+    
+    // Calculate percentage (assuming max buffer of 100k)
+    const maxBuffer = 100000;
+    const pct = Math.min(100, Math.round((bufferSize / maxBuffer) * 100));
+    
+    // Update gauge (circumference = 226)
+    const offset = 226 - (226 * pct / 100);
+    circle.setAttribute('stroke-dashoffset', offset);
+    
+    // Update color based on utilization
+    if (pct > 80) {
+        circle.setAttribute('stroke', '#ef4444');
+        valueEl.style.color = '#ef4444';
+    } else if (pct > 60) {
+        circle.setAttribute('stroke', '#f59e0b');
+        valueEl.style.color = '#f59e0b';
+    } else {
+        circle.setAttribute('stroke', '#10b981');
+        valueEl.style.color = '#10b981';
+    }
+    
+    valueEl.textContent = pct;
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+function refreshDashboard() {
+    const btns = document.querySelectorAll('.btn');
+    btns.forEach(b => b.style.opacity = '0.5');
+    
+    loadDashboardData();
+    
+    setTimeout(() => {
+        btns.forEach(b => b.style.opacity = '1');
+    }, 500);
+}
+
+function viewServerStream(hostname) {
+    window.location.href = `/rti/stream?server=${encodeURIComponent(hostname)}`;
+}
+
+function exportDashboardData() {
+    const data = {
+        timestamp: new Date().toISOString(),
+        servers: document.getElementById('kpi-servers').textContent,
+        rate: document.getElementById('kpi-rate').textContent,
+        buffer: document.getElementById('kpi-buffer').textContent,
+        capture: document.getElementById('kpi-capture').textContent
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rti-dashboard-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function updateThroughputGauge(bufferSize) {
+    // This function is defined above, duplicate removed
+}
+</script>
+{% endblock %}

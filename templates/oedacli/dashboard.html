@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+<!-- Filename: templates/oedacli_dashboard.html -->
+<!-- Version: 2026-04-21 v1.15 - Table now spans full width + removed duplicate back button -->
+
+{% block title %}OEDACLI Job History{% endblock %}
+{% block page_title %}OEDACLI JOB HISTORY{% endblock %}
+
+{% block content %}
+<style>
+/* GREEN MENU BALL - EXACT SAME STYLE AS WIZARD & MAIN PAGE */
+.fab-container {
+    position: fixed !important;
+    bottom: 30px !important;
+    right: 30px !important;
+    z-index: 99999 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+}
+.fab-main {
+    width: 68px !important;
+    height: 68px !important;
+    border-radius: 50% !important;
+    background: #10b981 !important;
+    color: white !important;
+    font-size: 32px !important;
+    border: none !important;
+    box-shadow: 0 6px 20px rgba(16,185,129,0.5) !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 99999 !important;
+}
+.fab-dial {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    margin-top: 12px !important;
+    opacity: 0 !important;
+    transform: translateY(20px) !important;
+    transition: all 0.3s ease !important;
+    pointer-events: none !important;
+}
+.fab-container:hover .fab-dial {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    pointer-events: auto !important;
+}
+.fab-action {
+    padding: 12px 24px !important;
+    border-radius: 9999px !important;
+    background: white !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
+    cursor: pointer !important;
+    font-size: 15px !important;
+    white-space: nowrap !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    text-decoration: none !important;
+    color: #1f2937 !important;
+}
+.fab-action:hover {
+    background: #f1f5f9 !important;
+}
+</style>
+
+<div class="setup-container" style="padding-bottom:140px; background:#fff !important; min-height:100vh !important;">
+
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:30px;">
+        <h2 style="margin:0; font-size:28px; color:#1f2937;">OEDACLI Job History</h2>
+    </div>
+
+    <!-- Job History Table - Full Width -->
+    <div class="card" style="background:#1f2937; border-radius:16px; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.3); border: none; width: 100%;">
+        <div class="card-header" style="background:#0f172a; color:#fff; padding:18px 24px; font-weight:600; font-size:18px; display:flex; align-items:center; justify-content:space-between;">
+            <span>Recent OEDACLI Executions</span>
+            <span class="badge bg-light text-dark" style="font-size:13px; padding:6px 14px;">{{ jobs|length }} jobs</span>
+        </div>
+        
+        <div class="card-body p-0" style="width: 100%;">
+            {% if jobs %}
+            <table class="table mb-0" style="font-size:15px; color:#e2e8f0; background:#1f2937; width: 100%;">
+                <thead style="background:#0f172a;">
+                    <tr>
+                        <th style="padding:16px 20px; width:90px; color:#94a3b8; border-bottom:2px solid #334155;">Job ID</th>
+                        <th style="padding:16px 20px; color:#94a3b8; border-bottom:2px solid #334155;">Command</th>
+                        <th style="padding:16px 20px; width:130px; color:#94a3b8; border-bottom:2px solid #334155;">Status</th>
+                        <th style="padding:16px 20px; width:180px; color:#94a3b8; border-bottom:2px solid #334155;">Started</th>
+                        <th style="padding:16px 20px; width:110px; color:#94a3b8; border-bottom:2px solid #334155;">Duration</th>
+                        <th style="padding:16px 20px; width:110px; color:#94a3b8; border-bottom:2px solid #334155;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for job in jobs %}
+                    <tr style="border-bottom:1px solid #334155;">
+                        <td style="padding:16px 20px; font-family:monospace; color:#64748b;">{{ job.id }}</td>
+                        <td style="padding:16px 20px; font-family:monospace; color:#e2e8f0;">{{ job.command }}</td>
+                        <td style="padding:16px 20px;">
+                            {% if job.status == 'SUCCESS' %}
+                                <span class="badge bg-success" style="font-size:13px; padding:6px 14px;">SUCCESS</span>
+                            {% elif job.status == 'FAILED' %}
+                                <span class="badge bg-danger" style="font-size:13px; padding:6px 14px;">FAILED</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark" style="font-size:13px; padding:6px 14px;">RUNNING</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding:16px 20px; color:#cbd5e1;">{{ job.started_at }}</td>
+                        <td style="padding:16px 20px; color:#94a3b8;">{{ job.duration }}</td>
+                        <td style="padding:16px 20px;">
+                            <button onclick="viewJobDetails({{ job.id }})" 
+                                    class="btn btn-sm btn-outline-light" 
+                                    style="border-radius:9999px; padding:6px 18px; font-size:13px;">
+                                View Logs
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="padding:60px 20px; text-align:center; color:#64748b;">
+                <div style="font-size:48px; margin-bottom:16px;">📭</div>
+                <h5 style="color:#94a3b8;">No jobs found</h5>
+                <p style="margin-top:8px;">Run a command from the Wizard to see history here.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Job Detail Modal -->
+    <div class="modal fade" id="jobModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content" style="background:#1f2937; color:#e2e8f0; border-radius:16px; border: none;">
+                <div class="modal-header" style="background:#0f172a; border-bottom:1px solid #334155;">
+                    <h5 class="modal-title" style="color:#fff;">Job Details - <span id="modal-job-id" style="color:#60a5fa;"></span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="padding:0;">
+                    <pre id="modal-log-content" style="background:#111827; color:#0f0; padding:24px; margin:0; max-height:520px; overflow-y:auto; white-space:pre-wrap; font-family:monospace; font-size:14px; line-height:1.5; border-radius:0 0 16px 16px;"></pre>
+                </div>
+                <div class="modal-footer" style="background:#1f2937; border-top:1px solid #334155;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="border-radius:9999px; padding:10px 24px;">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- GREEN MENU BALL -->
+<div class="fab-container">
+    <button onclick="window.location.href='{{ url_for('oedacli.oedacli_wizard') }}'" class="fab-main">▶</button>
+    <div class="fab-dial">
+        <a href="{{ url_for('oedacli.oedacli_index') }}" class="fab-action">🏠 Back to Console</a>
+        <a href="{{ url_for('oedacli.oedacli_wizard') }}" class="fab-action">🧙 Go to Wizard</a>
+        <button onclick="window.location.reload()" class="fab-action">🔄 Refresh Page</button>
+    </div>
+</div>
+
+<script>
+function viewJobDetails(jobId) {
+    fetch(`/oedacli/api/job/${jobId}/logs`)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('modal-job-id').innerText = jobId;
+            document.getElementById('modal-log-content').innerText = data.logs || 'No logs available for this job.';
+            const modal = new bootstrap.Modal(document.getElementById('jobModal'));
+            modal.show();
+        })
+        .catch(() => alert('Failed to load job logs'));
+}
+</script>
+{% endblock %}
