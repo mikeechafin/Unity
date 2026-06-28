@@ -1,0 +1,13 @@
+set /SP/alertmgmt/rules/1 type=snmptrap
+set /SP/alertmgmt/rules/1 snmp_version=3
+set /SP/alertmgmt/rules/1 destination=0.0.0.0
+set /SP/alertmgmt/rules/1 destination_port=0
+set /SP/alertmgmt/rules/1 community_or_username=public
+set /SP/alertmgmt/rules/1 level=warning
+set /SP/alertmgmt/rules/2 type=snmptrap
+set /SP/alertmgmt/rules/2 snmp_version=3
+set /SP/alertmgmt/rules/2 destination=0.0.0.0
+set /SP/alertmgmt/rules/2 destination_port=0
+set /SP/alertmgmt/rules/2 community_or_username=public
+set /SP/alertmgmt/rules/2 level=warning
+... (full reset logic - clears Rules 2-15, preserves Rule 1)

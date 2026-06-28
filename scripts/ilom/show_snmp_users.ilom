@@ -1,0 +1,14 @@
+cd /SP/services/snmp/users
+ls
+cd maaem; show; cd ..
+cd LocalMSV3user; show; cd ..
+cd snmpuserdes; show; cd ..
+cd snmpdesuser; show; cd ..
+cd snmpaesuser; show; cd ..
+cd v3usertest; show; cd ..
+cd v3userdbm; show; cd ..
+cd v3userSHA; show; cd ..
+cd v3user; show; cd ..
+cd orarom; show; cd ..
+cd maa256; show; cd ..
+cd maa224; show
