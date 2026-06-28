@@ -1,0 +1,1 @@
+alter cell snmpUser.maaem=(authprotocol=SHA,authpassword=welcome1,privprotocol=AES,privpassword=welcome1)

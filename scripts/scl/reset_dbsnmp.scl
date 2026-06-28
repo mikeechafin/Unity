@@ -1,0 +1,32 @@
+# Version: 2026-03-23 v1.00
+# Changes: Migrated from legacy environment_setup_functions.py - full multi-line bash script
+#!/bin/bash
+PASS="We1come$"
+echo "Starting DBSNMP password reset..."
+updated=0
+for pid in $(ps -ef | grep -v grep | grep [o]ra_pmon_ | awk '{print $2}'); do
+  cmd=$(ps -o command -p $pid | tail -1)
+  if [[ $cmd == *ora_pmon_* && ! $cmd == *+ASM* ]]; then
+    sid=${cmd##*ora_pmon_}
+    home=$(tr '\0' '\n' < /proc/$pid/environ | grep ^ORACLE_HOME= | cut -d= -f2)
+    if [ -n "$home" ] && [ -d "$home" ] && [ -x "$home/bin/sqlplus" ]; then
+      echo "Updating dbsnmp password for database $sid, ORACLE_HOME=$home"
+      su - oracle -c "export ORACLE_SID=$sid; export ORACLE_HOME=$home; export PATH=$home/bin:$PATH; sqlplus / as sysdba <<EOF
+alter user dbsnmp identified by $PASS;
+alter user dbsnmp account unlock;
+EOF"
+      if [ $? -eq 0 ]; then
+        updated=1
+      else
+        echo "Failed to update $sid in $home"
+      fi
+    else
+      echo "Skipping invalid home for $sid: $home"
+    fi
+  fi
+done
+if [ $updated -eq 0 ]; then
+  echo "No running databases found to update."
+else
+  echo "DBSNMP password reset complete."
+fi

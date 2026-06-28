@@ -1,0 +1,1 @@
+alter dbserver smtpServer='smtp.us.oracle.com', smtpFromAddr='maa@oracle.com', smtpFrom='MAA', smtpToAddr='maa@oracle.com', smtpUseSSL=FALSE
