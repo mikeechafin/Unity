@@ -1,0 +1,10 @@
+bash -c 'file="/opt/oracle/dbserver/dbms/deploy/config/cellinit.ora";
+changed=0;
+grep -q "_trim_ilom_snmp_list=true" "$file" || { echo "_trim_ilom_snmp_list=true" >> "$file"; changed=1; };
+grep -q "_cell_send_emails_and_asr_for_simulated_errors=true" "$file" || { echo "_cell_send_emails_and_asr_for_simulated_errors=true" >> "$file"; changed=1; };
+grep -q "_cell_allow_reenable_predfail=TRUE" "$file" || { echo "_cell_allow_reenable_predfail=TRUE" >> "$file"; changed=1; };
+if [ $changed -eq 1 ]; then
+  dbmcli -e "alter dbserver restart services all";
+else
+  echo "No changes needed - configuration already set";
+fi'

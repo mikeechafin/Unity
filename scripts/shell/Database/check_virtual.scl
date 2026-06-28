@@ -1,0 +1,4 @@
+if [ -d /EXAVMIMAGES ] 
+then echo "hypervisor"
+else  echo "not a hypervisor" 
+fi

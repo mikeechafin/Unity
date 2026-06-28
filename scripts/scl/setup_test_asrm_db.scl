@@ -1,0 +1,1 @@
+alter dbserver snmpsubscriber +=((host='phoenix235943.dev3sub3phx.databasede3phx.oraclevcn.com',port=162,community=public,type=ASR,asrmPort=16161))

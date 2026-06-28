@@ -1,0 +1,10 @@
+bash -c 'file="/opt/oracle/cell/cellsrv/deploy/config/cellinit.ora";
+changed=0;
+grep -q "_trim_ilom_snmp_list=true" "$file" || { echo "_trim_ilom_snmp_list=true" >> "$file"; changed=1; };
+grep -q "_cell_send_emails_and_asr_for_simulated_errors=true" "$file" || { echo "_cell_send_emails_and_asr_for_simulated_errors=true" >> "$file"; changed=1; };
+grep -q "_cell_allow_reenable_predfail=true" "$file" || { echo "_cell_allow_reenable_predfail=true" >> "$file"; changed=1; };
+if [ $changed -eq 1 ]; then
+  cellcli -e "alter cell restart services all";
+else
+  echo "No changes needed - configuration already set";
+fi'
