@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Agent Management Report{% endblock %}
+
+{% block page_title %}Agent Management Report{% endblock %}
+
+{% block content %}
+    <div class="content-wrapper">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Manage Ignore Strings and Error Summary Buttons -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button onclick="window.location.href='{{ url_for('agent.manage') }}'" class="action-button">Manage Ignore Strings</button>
+            <button onclick="window.location.href='{{ url_for('agent.error_summary') }}'" class="action-button">Error Summary</button>
+        </div>
+
+        <div class="section-title">Agent Summary</div>
+        <form method="get" action="{{ url_for('agent.report') }}" id="summary-filter-form">
+            <table class="data-table summary-table" id="summaryTable" style="width: 100%; border-collapse: collapse; background-color: #D3D3D3; margin-bottom: 20px;">
+                <thead>
+                    <tr>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000;">
+                            <input type="text" name="summary_hostname" value="{{ filters.summary_hostname }}" placeholder="Filter Hostname" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000;"></th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000;"></th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000;"></th>
+                    </tr>
+                    <tr>
+                        <th>Hostname</th>
+                        <th>Unregistered Agents</th>
+                        <th>Known Agents</th>
+                        <th>Total Detected Agents</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in summary_data %}
+                        <tr style="background-color: {% if loop.index0 % 2 == 0 %}#E6E6E6{% else %}#F5F5F5{% endif %};">
+                            <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;"><a href="{{ url_for('agent.host_detail', hostname=row[0]) }}">{{ row[0] }}</a></td>
+                            <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;" class="{% if row[1] >= 15 %}highlight-red{% endif %}">{{ row[1] }}</td>
+                            <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;" class="{% if row[2] >= 15 %}highlight-red{% endif %}">{{ row[2] }}</td>
+                            <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;" class="{% if row[3] >= 15 %}highlight-red{% endif %}">{{ row[3] }}</td>
+                        </tr>
+                    {% endfor %}
+                    {% set total_known = total_detected - total_unregistered %}
+                    <tr style="background-color: #C0C0C0;">
+                        <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;"><strong>Total</strong></td>
+                        <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;" class="{% if total_unregistered >= 15 %}highlight-red{% endif %}"><strong>{{ total_unregistered }}</strong></td>
+                        <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;" class="{% if total_known >= 15 %}highlight-red{% endif %}"><strong>{{ total_known }}</strong></td>
+                        <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;" class="{% if total_detected >= 15 %}highlight-red{% endif %}"><strong>{{ total_detected }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </form>
+
+        <!-- Add spacing between Summary Table and Agent Details title -->
+        <div style="margin-bottom: 40px;"></div>
+
+        <div class="section-title">Agent Details</div>
+        <!-- Action Buttons -->
+        <form id="agentActionsForm" method="POST" action="{{ url_for('agent.handle_agent_action') }}">
+            <div style="margin-bottom: 20px;">
+                <input type="hidden" name="action" id="actionField">
+                <button type="submit" class="back-button" onclick="setAction('delete')">Delete Selected</button>
+                <button type="submit" class="back-button" style="margin-left: 10px;" onclick="setAction('shutdown')">Shutdown Selected</button>
+                <button type="submit" class="back-button" style="margin-left: 10px;" onclick="setAction('startup')">Startup Selected</button>
+                <button type="submit" class="back-button" style="margin-left: 10px;" onclick="setAction('refresh')">Refresh Status</button>
+            </div>
+        </form>
+
+        <!-- Filter Form -->
+        <form method="get" action="{{ url_for('agent.report') }}" id="details-filter-form">
+            <!-- Preserve action form values -->
+            {% for key, value in request.form.items() %}
+                {% if key != 'action' and key != 'selected_agents' %}
+                    <input type="hidden" name="{{ key }}" value="{{ value }}">
+                {% endif %}
+            {% endfor %}
+            <table class="data-table" id="detailsTable" style="width: 100%; border-collapse: collapse; background-color: #D3D3D3; margin-bottom: 20px; table-layout: fixed;">
+                <thead>
+                    <tr>
+                        <th style="padding: 10px; text-align: center; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 50px;">
+                            <input type="checkbox" id="select-all" form="agentActionsForm" onclick="toggleCheckboxes(this)">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 200px;">
+                            <input type="text" name="details_hostname" value="{{ filters.details_hostname }}" placeholder="Filter Hostname" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 80px;">
+                            <input type="text" name="pid" value="{{ filters.pid }}" placeholder="Filter PID" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 80px;">
+                            <input type="text" name="port" value="{{ filters.port }}" placeholder="Filter Port" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 200px;">
+                            <input type="text" name="agent_home" value="{{ filters.agent_home }}" placeholder="Filter Agent Home" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 200px;">
+                            <input type="text" name="oms_url" value="{{ filters.oms_url }}" placeholder="Filter OMS URL" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 100px;">
+                            <input type="text" name="snmp_count" value="{{ filters.snmp_count }}" placeholder="Filter SNMP Count" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 200px;">
+                            <input type="text" name="configured_iloms" value="{{ filters.configured_iloms }}" placeholder="Filter ILOMs" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 100px;">
+                            <input type="text" name="agent_status" value="{{ filters.agent_status }}" placeholder="Filter Status" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 120px;">
+                            <input type="text" name="install_date" value="{{ filters.install_date }}" placeholder="Filter Install Date" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 100px;">
+                            <input type="text" name="total_space" value="{{ filters.total_space }}" placeholder="Filter Total Space" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 100px;">
+                            <input type="text" name="cpu_usage" value="{{ filters.cpu_usage }}" placeholder="Filter CPU Usage" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 100px;">
+                            <input type="text" name="memory_usage" value="{{ filters.memory_usage }}" placeholder="Filter Memory Usage" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 100px;">
+                            <input type="text" name="target_count" value="{{ filters.target_count }}" placeholder="Filter Target Count" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 100px;">
+                            <input type="text" name="agent_version" value="{{ filters.agent_version }}" placeholder="Filter Agent Version" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 100px;">
+                            <input type="text" name="oms_version" value="{{ filters.oms_version }}" placeholder="Filter OMS Version" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 150px;">
+                            <input type="text" name="heartbeat_status" value="{{ filters.heartbeat_status }}" placeholder="Filter Heartbeat Status" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 150px;">
+                            <input type="text" name="running_duration" value="{{ filters.running_duration }}" placeholder="Filter Running Duration" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 150px;">
+                            <input type="text" name="last_successful_upload" value="{{ filters.last_successful_upload }}" placeholder="Filter Last Successful Upload" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #666666; background-color: #C0C0C0; font-weight: bold; color: #000000; width: 100px;">
+                            <input type="text" name="total_errors" value="{{ filters.get('total_errors', '') }}" placeholder="Filter Total Errors" style="width: 100%; padding: 5px; box-sizing: border-box;" oninput="this.form.submit()">
+                        </th>
+                    </tr>
+                    <tr>
+                        <th class="checkbox-column"></th>
+                        <th>Hostname</th>
+                        <th>PID</th>
+                        <th>Port</th>
+                        <th>Agent Home</th>
+                        <th>Enterprise Manager OMS URL</th>
+                        <th>Total SNMP Subscriptions Count</th>
+                        <th>ILOMs with SNMP Configured for this Home</th>
+                        <th>Agent Status</th>
+                        <th>Install Date</th>
+                        <th>Total Space (MB)</th>
+                        <th>CPU Usage (%)</th>
+                        <th>Memory Usage (MB)</th>
+                        <th>Target Count</th>
+                        <th>Agent Version</th>
+                        <th>OMS Version</th>
+                        <th>Heartbeat Status</th>
+                        <th>Running Duration (Days)</th>
+                        <th>Last Successful Upload</th>
+                        <th>Total Errors</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if error %}
+                    <tr>
+                        <td colspan="20" style="padding: 10px; text-align: center; border: 1px solid #666666; color: #000000;">Error: {{ error }}</td>
+                    </tr>
+                    {% elif details_data %}
+                        {% for row in details_data %}
+                            <tr style="background-color: {% if loop.index0 % 2 == 0 %}#E6E6E6{% else %}#F5F5F5{% endif %};">
+                                <td class="checkbox-column" style="padding: 10px; text-align: center; border: 1px solid #666666; color: #000000;">
+                                    <input type="checkbox" name="selected_agents" form="agentActionsForm" value="{{ row[19] }}">
+                                </td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[0] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[1] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[2] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666;"><a href="{{ url_for('agent.agent_home_detail', hostname=row[0], pid=row[1], agent_home=row[3]) }}">{{ row[3] }}</a></td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[4] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;" class="{% if row[5] >= 15 %}highlight-red{% endif %}">{{ row[5] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">
+                                    {% if row[6] == ['None'] %}
+                                        None
+                                    {% else %}
+                                        {% for ilom in row[6] %}
+                                            <a href="{{ url_for('ilom.host_detail', hostname=ilom) }}">{{ ilom }}</a>{% if not loop.last %}, {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[7] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[8] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[9] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[10] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[11] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[12] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[13] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[14] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[15] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[16] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[17] }}</td>
+                                <td style="padding: 10px; text-align: left; border: 1px solid #666666; color: #000000;">{{ row[18] | int }}</td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="20" style="padding: 10px; text-align: center; border: 1px solid #666666; color: #000000;">No agent details found.</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </form>
+
+        <script>
+            function toggleCheckboxes(source) {
+                const checkboxes = document.getElementsByName('selected_agents');
+                for (let i = 0; i < checkboxes.length; i++) {
+                    checkboxes[i].checked = source.checked;
+                }
+            }
+
+            function setAction(action) {
+                document.getElementById('actionField').value = action;
+            }
+        </script>
+    </div>
+{% endblock %}

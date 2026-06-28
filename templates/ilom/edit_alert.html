@@ -1,0 +1,108 @@
+<!-- Version: 2026-04-04 v1.00 -->
+<!-- Changes: Migrated to new dark unified format matching edit_snmp_alert_switch.html (setup-container, dark rounded form, green FAB with Refresh + Back). Removed flash banner and top back button. -->
+{% extends "base.html" %}
+{% block title %}Edit SNMP Alert - {{ hostname }} - Alert ID {{ alert_id }}{% endblock %}
+{% block page_title %}EDIT SNMP ALERT - {{ hostname }} (ID {{ alert_id }}){% endblock %}
+
+{% block content %}
+<div class="setup-container" style="padding-bottom: 140px; max-width:620px; margin:0 auto;">
+
+    <div style="margin-bottom:24px;">
+        <a href="{{ url_for('ilom.host_detail', hostname=hostname) }}" class="action-button" style="background:#334155; color:#fff; padding:14px 28px; border-radius:9999px; text-decoration:none; font-weight:600;">← Back to Host Detail</a>
+    </div>
+
+    <div style="background:#1f2937; padding:40px; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.4);">
+        <h2 style="margin:0 0 28px; font-size:24px; color:#fff;">Edit SNMP Alert</h2>
+        <form method="POST" class="edit-alert-form">
+            <input type="hidden" name="alert_id" value="{{ alert_id }}">
+
+            <div style="margin-bottom:24px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">SNMP Version</label>
+                <select name="version" id="version" style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+                    <option value="v2c" {% if alert[1] == 'v2c' %}selected{% endif %}>v2c</option>
+                    <option value="v3" {% if alert[1] == 'v3' %}selected{% endif %}>v3</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:24px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Destination IP</label>
+                <input type="text" name="destination_ip" id="destination_ip" value="{{ alert[2] }}" required style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+            </div>
+
+            <div style="margin-bottom:24px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Port</label>
+                <input type="number" name="port" id="port" value="{{ alert[6] }}" required style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+            </div>
+
+            <div id="community_group" style="margin-bottom:24px; display: {% if alert[1] == 'v2c' %}block{% else %}none{% endif %};">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Community String</label>
+                <input type="text" name="community_string" id="community_string" value="{{ alert[3] if alert[3] else 'public' }}" style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+            </div>
+
+            <div id="username_group" style="margin-bottom:24px; display: {% if alert[1] == 'v3' %}block{% else %}none{% endif %};">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Username</label>
+                <input type="text" name="username" id="username" value="{{ alert[4] if alert[4] else '' }}" style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+            </div>
+
+            <div style="margin-bottom:32px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Status (Level)</label>
+                <select name="status" id="status" style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+                    <option value="disable" {% if alert[5] == 'disable' %}selected{% endif %}>Disable</option>
+                    <option value="minor" {% if alert[5] == 'minor' %}selected{% endif %}>Minor</option>
+                    <option value="major" {% if alert[5] == 'major' %}selected{% endif %}>Major</option>
+                    <option value="critical" {% if alert[5] == 'critical' %}selected{% endif %}>Critical</option>
+                </select>
+            </div>
+
+            <div style="display:flex; gap:12px;">
+                <button type="button" onclick="history.back()" style="flex:1; padding:16px; background:#334155; color:#e2e8f0; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Cancel</button>
+                <button type="submit" name="update_alert" style="flex:1; padding:16px; background:#10b981; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Floating Green Ball FAB -->
+<button onclick="toggleFabMenu()" class="fab-button"
+        style="position:fixed; bottom:120px; right:40px; width:64px; height:64px; background:#10b981; border:none; border-radius:9999px; color:#fff; font-size:28px; box-shadow:0 10px 30px rgba(16,185,129,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; cursor:pointer;">
+    +
+</button>
+
+<!-- FAB Menu -->
+<div id="fabMenu" style="display:none; position:fixed; bottom:200px; right:40px; background:#1f2937; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; min-width:200px; z-index:1001;">
+    <a onclick="location.reload(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">⟳ Refresh Now</a>
+    <a href="{{ url_for('ilom.host_detail', hostname=hostname) }}" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">← Back to Host Detail</a>
+</div>
+
+<script>
+function toggleFabMenu() {
+    const menu = document.getElementById('fabMenu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+    const fabMenu = document.getElementById('fabMenu');
+    if (fabMenu.style.display === 'block' && !e.target.closest('.fab-button') && !e.target.closest('#fabMenu')) {
+        fabMenu.style.display = 'none';
+    }
+});
+
+document.getElementById('version').addEventListener('change', function() {
+    var version = this.value;
+    var communityGroup = document.getElementById('community_group');
+    var usernameGroup = document.getElementById('username_group');
+    if (version === 'v2c') {
+        communityGroup.style.display = 'block';
+        usernameGroup.style.display = 'none';
+    } else {
+        communityGroup.style.display = 'none';
+        usernameGroup.style.display = 'block';
+    }
+});
+</script>
+
+<style>
+.fab-button:hover { transform: scale(1.1); }
+#fabMenu a { display:block; padding:14px 24px; color:#fff; text-decoration:none; }
+#fabMenu a:hover { background:#334155; }
+</style>
+{% endblock %}

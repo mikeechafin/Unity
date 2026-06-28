@@ -1,0 +1,115 @@
+<!-- Version: 2026-04-02 v1.02 -->
+<!-- Changes: Removed flash messages banner (to eliminate any login/token banner) + removed the top h2 title ("ASR Assets for ...") because it is redundant with the red header page_title. Host Name left justification kept. -->
+{% extends "base.html" %}
+{% block title %}ASR Details - {{ hostname }}{% endblock %}
+{% block page_title %}ASR DETAILS - {{ hostname|upper }}{% endblock %}
+{% block content %}
+<div class="setup-container" style="padding-bottom: 140px;">
+
+    {% if error_message %}
+        <div style="background:#7f1d1d; color:#fee2e2; padding:16px; border-radius:12px;">{{ error_message }}</div>
+    {% elif assets_data %}
+        <!-- Modern Filter Bar -->
+        <div style="background:#1f2937; padding:20px; border-radius:16px; margin-bottom:24px; display:flex; flex-wrap:wrap; gap:12px;">
+            <input type="text" id="f_host" placeholder="Host Name" value="{{ filters.host_name }}" oninput="applyFilters()" style="flex:1; min-width:160px; background:#334155; border:1px solid #475569; color:#fff; padding:12px 16px; border-radius:9999px;">
+            <input type="text" id="f_serial" placeholder="Serial Number" value="{{ filters.serial_number }}" oninput="applyFilters()" style="flex:1; min-width:160px; background:#334155; border:1px solid #475569; color:#fff; padding:12px 16px; border-radius:9999px;">
+            <input type="text" id="f_parent" placeholder="Parent Serial" value="{{ filters.parent_serial }}" oninput="applyFilters()" style="flex:1; min-width:160px; background:#334155; border:1px solid #475569; color:#fff; padding:12px 16px; border-radius:9999px;">
+            <input type="text" id="f_asr" placeholder="ASR" value="{{ filters.asr }}" oninput="applyFilters()" style="flex:1; min-width:140px; background:#334155; border:1px solid #475569; color:#fff; padding:12px 16px; border-radius:9999px;">
+            <input type="text" id="f_status" placeholder="ASR Status" value="{{ filters.asr_status }}" oninput="applyFilters()" style="flex:1; min-width:140px; background:#334155; border:1px solid #475569; color:#fff; padding:12px 16px; border-radius:9999px;">
+            <input type="text" id="f_protocol" placeholder="Protocol" value="{{ filters.protocol }}" oninput="applyFilters()" style="flex:1; min-width:140px; background:#334155; border:1px solid #475569; color:#fff; padding:12px 16px; border-radius:9999px;">
+            <input type="text" id="f_source" placeholder="Source" value="{{ filters.source }}" oninput="applyFilters()" style="flex:1; min-width:140px; background:#334155; border:1px solid #475569; color:#fff; padding:12px 16px; border-radius:9999px;">
+            <input type="text" id="f_heartbeat" placeholder="Last Heartbeat" value="{{ filters.last_heartbeat }}" oninput="applyFilters()" style="flex:1; min-width:160px; background:#334155; border:1px solid #475569; color:#fff; padding:12px 16px; border-radius:9999px;">
+            <input type="text" id="f_product" placeholder="Product Name" value="{{ filters.product_name }}" oninput="applyFilters()" style="flex:1; min-width:160px; background:#334155; border:1px solid #475569; color:#fff; padding:12px 16px; border-radius:9999px;">
+        </div>
+
+        <table class="component-table" style="width:100%; table-layout:fixed; background:#111827; border-collapse:collapse;">
+            <colgroup>
+                <col style="width:180px;">
+                <col style="width:200px;">
+                <col style="width:160px;">
+                <col style="width:110px;">
+                <col style="width:140px;">
+                <col style="width:110px;">
+                <col style="width:120px;">
+                <col style="width:160px;">
+                <col style="width:200px;">
+            </colgroup>
+            <thead>
+                <tr style="background:#0f172a;">
+                    <th style="padding:18px 24px; text-align:left !important;">Host Name</th>
+                    <th style="padding:18px 24px; text-align:left;">Serial Number</th>
+                    <th style="padding:18px 24px; text-align:left;">Parent Serial</th>
+                    <th style="padding:18px 24px; text-align:left;">ASR</th>
+                    <th style="padding:18px 24px; text-align:left;">ASR Status</th>
+                    <th style="padding:18px 24px; text-align:left;">Protocol</th>
+                    <th style="padding:18px 24px; text-align:left;">Source</th>
+                    <th style="padding:18px 24px; text-align:left;">Last Heartbeat</th>
+                    <th style="padding:18px 24px; text-align:left;">Product Name</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in assets_data %}
+                <tr style="background:#1f2937; color:#e2e8f0; border-bottom:1px solid #334155;">
+                    <td style="padding:20px 24px; text-align:left !important;">{{ row.host_name or 'N/A' }}</td>
+                    <td style="padding:20px 24px;">
+                        <a href="https://asr-fems-uat-ucf.us.oracle.com/FEMSService/resources/femsservice/femsview/{{ row.serial_number }}" target="_blank" style="color:#60a5fa;">{{ row.serial_number or 'N/A' }}</a>
+                    </td>
+                    <td style="padding:20px 24px;">{{ row.parent_serial or 'N/A' }}</td>
+                    <td style="padding:20px 24px;">{{ row.asr or 'N/A' }}</td>
+                    <td style="padding:20px 24px;">{{ row.asr_status or 'N/A' }}</td>
+                    <td style="padding:20px 24px;">{{ row.protocol or 'N/A' }}</td>
+                    <td style="padding:20px 24px;">{{ row.source or 'N/A' }}</td>
+                    <td style="padding:20px 24px;">{{ row.last_heartbeat or 'N/A' }}</td>
+                    <td style="padding:20px 24px;">{{ row.product_name or 'N/A' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" style="padding:40px; text-align:center; color:#64748b;">No assets found for this ASR hostname.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+    <p style="color:#94a3b8;">No assets found for this ASR hostname.</p>
+    {% endif %}
+</div>
+
+<!-- Floating Green Ball FAB -->
+<button onclick="toggleFabMenu()" class="fab-button"
+        style="position:fixed; bottom:120px; right:40px; width:64px; height:64px; background:#10b981; border:none; border-radius:9999px; color:#fff; font-size:28px; box-shadow:0 10px 30px rgba(16,185,129,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; cursor:pointer;">
+    +
+</button>
+
+<!-- FAB Menu -->
+<div id="fabMenu" style="display:none; position:fixed; bottom:200px; right:40px; background:#1f2937; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; min-width:200px; z-index:1001;">
+    <a onclick="location.reload(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">⟳ Refresh Now</a>
+    <a onclick="window.location = '{{ url_for('asrm.asrm_details', hostname=hostname) }}'; toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">Clear Filters</a>
+</div>
+
+<script>
+function toggleFabMenu() {
+    const menu = document.getElementById('fabMenu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+function applyFilters() {
+    const filters = {
+        host_name: document.getElementById('f_host').value,
+        serial_number: document.getElementById('f_serial').value,
+        parent_serial: document.getElementById('f_parent').value,
+        asr: document.getElementById('f_asr').value,
+        asr_status: document.getElementById('f_status').value,
+        protocol: document.getElementById('f_protocol').value,
+        source: document.getElementById('f_source').value,
+        last_heartbeat: document.getElementById('f_heartbeat').value,
+        product_name: document.getElementById('f_product').value
+    };
+    const queryString = new URLSearchParams(filters).toString();
+    window.location.href = `{{ url_for('asrm.asrm_details', hostname=hostname) }}?${queryString}`;
+}
+</script>
+
+<style>
+.fab-button:hover { transform: scale(1.1); }
+#fabMenu a:hover { background:#334155; }
+.component-table tr:hover { background:#1e2937 !important; }
+input:focus { border-color:#10b981; outline:none; }
+</style>
+{% endblock %}

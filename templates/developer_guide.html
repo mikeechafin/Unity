@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAA Unified Application - Developer Guide</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+    <style>
+        body { font-family: system-ui, Arial, sans-serif; line-height: 1.7; max-width: 1200px; margin: 40px auto; padding: 30px; background: #f8f9fa; color: #222; }
+        h1 { color: #007bff; text-align: center; border-bottom: 3px solid #007bff; padding-bottom: 15px; }
+        h2 { color: #0056b3; margin-top: 40px; border-bottom: 2px solid #ddd; padding-bottom: 8px; }
+        h3 { color: #0069d9; }
+        pre, code { background: #fff; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ccc; padding: 10px; text-align: left; }
+        th { background: #007bff; color: white; }
+        ul { padding-left: 25px; }
+        .mermaid { background: white; padding: 20px; border-radius: 8px; margin: 25px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .tip { background: #e7f3ff; padding: 15px; border-left: 5px solid #007bff; margin: 20px 0; }
+        hr { border: none; border-top: 2px solid #ddd; margin: 40px 0; }
+    </style>
+</head>
+<body>
+    <h1>MAA Unified Application - Developer Guide</h1>
+    <p style="text-align:center;"><strong>Version 1.05 • March 26, 2026 • ~30k LOC Production App</strong></p>
+
+    <h2>1. Introduction & Purpose</h2>
+    <p>The MAA Unified Application is a production-ready Flask + SocketIO web platform for Oracle Maximum Availability Architecture (MAA) teams. It provides a single pane of glass for managing Exadata racks, including:</p>
+    <ul>
+        <li>Environment setup (SNMP, ASR, SMTP, passwords via CellCLI/DBMCLI/ILOM)</li>
+        <li>Coordinated patching of Storage Servers, Database Servers, and Guest VMs using patchmgr</li>
+        <li>Exascale monitoring setup (excmonitor user + RSA PKI wallet)</li>
+        <li>Oracle Enterprise Manager agent lifecycle (install, status, cleanup, Falcon sensor)</li>
+        <li>Persistent job scheduling with APScheduler + Oracle jobstore</li>
+        <li>Real-time execution logging with browser tabs</li>
+        <li>Credential vault, reachability checks, and topology discovery (racks, clusters, ILOMs, switches)</li>
+    </ul>
+    <div class="tip"><strong>Key Exadata Domain Constraints Handled</strong>: ≤8 DB servers + ≤14 storage servers per rack, majority-up reachability rule, default users (root/oracle/maamd/admin), physical vs virtual detection.</div>
+
+    <h2>2. High-Level Architecture</h2>
+    <div class="mermaid">
+        graph TD
+            A[Browser + setup_environment.html] -->|SocketIO + REST| B[Flask App - maa_unified_app.py]
+            B --> C[Blueprints: setup_routes.py + access/agent/ilom/switches/jobs/fault]
+            B --> D[APScheduler + Oracle jobstore (MAAMD.APSCHEDULER_JOBS)]
+            B --> E[DB Pool oracledb (maamd user)]
+            C --> F[environment_setup_functions.py]
+            F --> G[maa_libraries.py: paramiko SSH, Fernet encryption, reachability, dcli]
+            G --> H[Exadata Targets: DB/Storage/Guests/ILOM/Switches]
+            H -->|CellCLI/DBMCLI/patchmgr/escli| G
+            B --> I[Job Locks (MAAMD.JOB_LOCKS) + PID/lock file]
+            C --> J[SocketIO Real-time Handlers + execution_logs dict]
+            subgraph "Security Layer"
+            K[ACCESS_CREDENTIALS (encrypted BLOBs)] --> E
+            end
+            subgraph "Real-time"
+            A <--> J
+            end
+    </div>
+
+    <h2>3. Project Structure</h2>
+    <pre>
+MAA_APPS_NEW/
+├── maa_unified_app.py          # Main entry, init, login, scheduler, SocketIO
+├── setup_routes.py             # Setup blueprint + group patching + SocketIO handlers
+├── environment_setup_functions.py # Core functions dict + patch/pre-shutdown/exascale
+├── maa_libraries.py            # SSH, credentials, reachability, EM agent utils
+├── maamd_schema.sql            # Full Oracle schema (ACCESS_CREDENTIALS, EXA_*, JOBS, AGENT_*)
+├── templates/
+│   └── developer_guide.html    # This file
+├── static/                     # oracle_logo.png
+├── output/                     # maa_unified.log + per-task logs
+└── TEST_CONFIG_SCRIPTS/PATCHING/ # patchmgr dirs + exadata_ol8_*.zip files
+    </pre>
+
+    <h2>4. Database Schema Highlights</h2>
+    <div class="mermaid">
+        erDiagram
+            ACCESS_CREDENTIALS ||--o{ SYSTEM_ALLOCATIONS : "credentials for"
+            ACCESS_CREDENTIALS ||--o{ ILOM_HOSTS : "ILOM creds"
+            ACCESS_CREDENTIALS ||--o{ SWITCH_INFO : "switch creds"
+            SCHEDULED_JOBS ||--o{ JOB_HISTORY : "run history"
+            SCHEDULED_JOBS ||--o{ JOB_LOCKS : "concurrency lock"
+            SYSTEM_ALLOCATIONS ||--o{ GUESTS : "hypervisor relation"
+            EXA_RACKS ||--o{ EXA_SERVERS : "rack topology"
+            AGENT_HOME_INFO ||--o{ AGENT_ERRORS : "error aggregation"
+            AGENT_HOME_INFO ||--o{ AGENT_LOG_CONTENTS : "raw logs"
+    </div>
+    <p><strong>Important Columns</strong>: ENCRYPTED_PASSWORD + ENCRYPTED_KEY (BLOBs), IS_RUNNING flag, EXA_* tables for full topology.</p>
+
+    <h2>5. Core Modules Breakdown</h2>
+    <table>
+        <tr><th>Module</th><th>File</th><th>Responsibility</th><th>Key Functions</th></tr>
+        <tr><td>Main App</td><td>maa_unified_app.py</td><td>Flask init, login, scheduler, SocketIO</td><td>initialize_app(), acquire_instance_lock(), run_script()</td></tr>
+        <tr><td>Setup Routes</td><td>setup_routes.py</td><td>/setup/environment + SocketIO</td><td>run_group_patch_background(), run_script_background(), series cache</td></tr>
+        <tr><td>Business Logic</td><td>environment_setup_functions.py</td><td>Component functions + patching</td><td>pre_patch_shutdown_dbserver(), setup_exascale_monitoring(), patch_*_servers()</td></tr>
+        <tr><td>Shared Utils</td><td>maa_libraries.py</td><td>SSH, security, utilities</td><td>encrypt_data(), get_credential_silent(), is_host_reachable(), process_switch()</td></tr>
+        <tr><td>Frontend</td><td>developer_guide.html</td><td>Interactive docs</td><td>Self-contained Mermaid rendering</td></tr>
+    </table>
+
+    <h2>6. Patching Workflow (Most Complex Flow)</h2>
+    <div class="mermaid">
+        sequenceDiagram
+            participant User
+            participant UI
+            participant SocketIO
+            participant SetupRoutes
+            participant PrePatch
+            participant PatchMgr
+            User->>UI: Select nodes + version/zip
+            UI->>SocketIO: emit('run_functions' or 'patch_environment')
+            SocketIO->>SetupRoutes: handle_run_functions
+            SetupRoutes->>PrePatch: pre_patch_shutdown_dbserver() (stops CRS/EDV/ESNP)
+            PrePatch-->>SetupRoutes: Success
+            SetupRoutes->>PatchMgr: patch_database_servers / patch_storage_servers
+            PatchMgr->>subprocess: ./patchmgr --dbnodes/--cells ... --log_dir
+            PatchMgr-->>SocketIO: safe_emit_progress (live lines)
+            SocketIO->>UI: Real-time tabs update (yellow->green)
+    </div>
+
+    <h2>7. Real-time Logging with SocketIO</h2>
+    <ul>
+        <li><code>execution_logs[task_id]</code> dict protected by <code>log_lock</code></li>
+        <li>Custom <code>SocketIOHandler</code> + <code>safe_emit_progress()</code></li>
+        <li>Frontend: dynamic tabs (yellow running, green success, red error)</li>
+        <li>Re-registration on reconnect via 'register_tasks'</li>
+    </ul>
+    <div class="mermaid">
+        graph LR
+            Thread[Background Thread] --> safe_emit_progress
+            safe_emit_progress --> LogFile[output/maa_unified.log]
+            safe_emit_progress --> SocketIO[emit('message', room=sid)]
+            SocketIO --> Browser[Dynamic Log Tabs]
+    </div>
+
+    <h2>8. Exascale Monitoring Setup Flow</h2>
+    <div class="mermaid">
+        sequenceDiagram
+            participant UI
+            participant Socket
+            participant Setup
+            participant Libs
+            participant Storage
+            UI->>Socket: 'setup_exascale_monitoring'
+            Socket->>Setup: handle_setup_exascale_monitoring
+            Setup->>Libs: discover_exascale_rest_endpoint()
+            Setup->>Storage: escli mkuser + chuser (privileges)
+            Setup->>Hosts: escli mkkey -> mkwallet -> chwallet
+            Libs->>DB: store_exascale_key (MERGE into ACCESS_CREDENTIALS)
+            Storage-->>Setup: pubkey upload + trust-store fetch
+    </div>
+
+    <h2>9. Credential & Security Management</h2>
+    <div class="mermaid">
+        flowchart LR
+            A[Script / UI] --> B[get_credential_silent]
+            B --> C[ACCESS_CREDENTIALS DB]
+            C --> D[ENCRYPTED_PASSWORD BLOB]
+            D --> E[Fernet.decrypt in maa_libraries.py]
+            E --> F[SSH/paramiko/escli]
+            G[store_exascale_key MERGE] --> C
+    </div>
+    <p><strong>Rule</strong>: Never plaintext passwords in code or logs. Fallbacks only in dev.</p>
+
+    <h2>10. Adding New Functions (Extension Guide)</h2>
+    <ol>
+        <li>Edit <code>functions</code> dict in environment_setup_functions.py</li>
+        <li>Add display_name to get_functions_for_type() map</li>
+        <li>If special: implement in the same file or new run_*_background</li>
+        <li>(Optional) Extend get_component_type() for new type</li>
+        <li>UI auto-updates via functions_by_type</li>
+        <li>Add to SocketIO handler if group-level</li>
+        <li>Update maamd_schema.sql only if new metadata needed</li>
+        <li>Test with reachability + credential lookup</li>
+    </ol>
+    <p><strong>Example</strong> (add Falcon sensor):</p>
+    <pre>('install_falcon_sensor', 'special_python_function', 'Install/Upgrade CrowdStrike')</pre>
+
+    <h2>11. Running, Deployment & Debugging</h2>
+    <pre>python maa_unified_app.py --host 0.0.0.0 --port 6003</pre>
+    <p>Required env vars: DB_PASSWORD, FLASK_SECRET_KEY, CONFLUENCE_TOKEN</p>
+    <p>Logs: output/maa_unified.log + browser tabs. Instance lock: /tmp/maa_unified_app_new.lock</p>
+
+    <h2>12. Troubleshooting</h2>
+    <ul>
+        <li>Lock conflict: DELETE FROM MAAMD.JOB_LOCKS WHERE IS_RUNNING='Y'</li>
+        <li>Patchmgr missing: Verify TEST_CONFIG_SCRIPTS/PATCHING/dbserver_patch_XX/ exists + chmod 755 patchmgr</li>
+        <li>SocketIO no logs: Pass correct client_sid in form POST</li>
+        <li>Credential fail: Check ACCESS_CREDENTIALS BLOBs via decrypt test</li>
+        <li>Exascale discovery fail: Provide manual rest_endpoint</li>
+        <li>Reachability false negative: Use TCP/22 check (firewall-friendly)</li>
+    </ul>
+    <p><strong>Common Edge Cases</strong>: Empty clusters → default creds, hypervisor detection via /EXAVMIMAGES, majority-up rule.</p>
+
+    <h2>13. Best Practices & Future Work</h2>
+    <ul>
+        <li>Always use get_db_pool_connection + release_db_connection</li>
+        <li>Thread safety: log_lock, INITIALIZATION_LOCK</li>
+        <li>Version header in every .py file</li>
+        <li>High test coverage + CI regression before 30k LOC changes</li>
+        <li>Future: Full Celery, Grafana dashboards, more Exascale automation</li>
+    </ul>
+
+    <hr>
+    <p style="text-align:center; color:#666;">This guide is the single source of truth for developers.<br>
+    Contact maamd for schema changes. Extend via blueprints and environment_setup_functions.py.</p>
+</body>
+</html>

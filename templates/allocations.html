@@ -1,0 +1,190 @@
+<!-- Version: 2026-03-30 v1.14 -->
+<!-- Changes: Secure badge icon changed from 🔑 (key) to 🔒 (padlock/box icon) to exactly match the hamburger menu sidebar style; gap tightened slightly so icon and text are distinct but aligned with Access Credentials page. -->
+{% extends "base.html" %}
+{% block title %}System Allocations{% endblock %}
+{% block page_title %}SYSTEM ALLOCATIONS{% endblock %}
+{% block content %}
+<div class="setup-container" style="padding-bottom: 140px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="margin:0; font-size:28px; color:#fff;">System Allocations</h2>
+    </div>
+    <form method="GET" action="{{ url_for('allocations') }}" class="filter-form" style="margin-bottom:20px; display:flex; gap:12px; align-items:center;">
+        <!-- Secure badge - using 🔒 box/lock icon to match hamburger menu sidebar -->
+        <div style="display:flex; align-items:center; gap:6px; background:#1e40af; color:#fff; padding:7px 16px; border-radius:9999px; font-size:14px; font-weight:600; white-space:nowrap; flex-shrink:0; box-shadow:0 1px 3px rgba(0,0,0,0.3);">
+            <span style="font-size:17px;">🔒</span>
+            Secure
+        </div>
+        <select name="rack" onchange="this.form.submit()" style="padding:12px; background:#1f2937; border:1px solid #475569; color:#fff; border-radius:8px; width:180px;">
+            <option value="">All Racks</option>
+            {% for rack in racks %}
+            <option value="{{ rack }}" {% if filters.rack == rack %}selected{% endif %}>{{ rack }}</option>
+            {% endfor %}
+        </select>
+        <input type="text" name="search" placeholder="Filter system / team / notes..."
+               value="{{ filters.search }}"
+               style="width:280px; padding:12px 20px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff;"
+               oninput="this.form.submit()">
+    </form>
+    <table class="component-table" style="width:100%; table-layout:fixed; background:#111827; border-collapse:collapse;">
+        <colgroup>
+            <col style="width:320px;">
+            <col style="width:180px;">
+            <col style="width:280px;">
+            <col style="width:140px;">
+            <col style="width:140px;">
+            <col style="width:120px;">
+            <col style="width:200px;">
+            <col style="width:80px;">
+        </colgroup>
+        <thead>
+            <tr style="background:#0f172a; color:#fff;">
+                <th style="padding:18px 24px; text-align:left;">System Name</th>
+                <th style="padding:18px 24px; text-align:left;">Team (Owner Group)</th>
+                <th style="padding:18px 24px; text-align:left;">Current Allocation</th>
+                <th style="padding:18px 24px; text-align:left;">End Date</th>
+                <th style="padding:18px 24px; text-align:left;">Last Updated</th>
+                <th style="padding:18px 24px; text-align:left;">Source</th>
+                <th style="padding:18px 24px; text-align:left;">Notes</th>
+                <th style="padding:18px 24px; text-align:right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in allocations_data %}
+            <tr style="background:#1f2937; color:#e2e8f0; border-bottom:1px solid #334155;" id="row-{{ row[0] | replace('.', '_') | replace('-', '_') }}">
+                <td style="padding:20px 24px; font-weight:500; text-align:left;">{{ row[0] }}</td>
+                <td style="padding:20px 24px;">{{ row[4] or 'Unassigned' }}</td>
+                <td style="padding:20px 24px;">{{ row[2] }}</td>
+                <td style="padding:20px 24px; color:{{ row[8] }};">{{ row[3] or 'Permanent' }}</td>
+                <td style="padding:20px 24px;">{{ row[7] }}</td>
+                <td style="padding:20px 24px;">{{ row[6] }}</td>
+                <td style="padding:20px 24px;">{{ row[5] or '' }}</td>
+                <td style="padding:20px 24px; text-align:right;">
+                    <button onclick="editAllocation('{{ row[0] }}', '{{ row[2] }}', '{{ row[3] or '' }}', '{{ row[4] or '' }}', '{{ row[5] or '' }}')"
+                            style="background:#334155; color:#fff; width:36px; height:36px; border-radius:9999px; border:none; cursor:pointer; margin-right:6px;">✏️</button>
+                    <button onclick="deleteAllocation('{{ row[0] }}')"
+                            style="background:#ef4444; color:#fff; width:36px; height:36px; border-radius:9999px; border:none; cursor:pointer; position:relative; z-index:10;">🗑️</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<!-- Floating Green Ball FAB -->
+<button onclick="toggleFabMenu()" class="fab-button"
+        style="position:fixed; bottom:120px; right:40px; width:64px; height:64px; background:#10b981; border:none; border-radius:9999px; color:#fff; font-size:28px; box-shadow:0 10px 30px rgba(16,185,129,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; cursor:pointer;">
+    +
+</button>
+<!-- FAB Menu -->
+<div id="fabMenu" style="display:none; position:fixed; bottom:200px; right:40px; background:#1f2937; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; min-width:200px; z-index:1001;">
+    <a onclick="showAddModal(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">+ Add Manual Entry</a>
+    <a onclick="location.reload(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">⟳ Refresh Now</a>
+    <a onclick="exportCSV(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">Export CSV</a>
+</div>
+<!-- Improved Add/Edit Modal -->
+<div id="allocModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#1f2937; width:100%; max-width:560px; border-radius:20px; padding:40px; box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.5);">
+        <h3 style="margin:0 0 24px; font-size:24px; color:#fff;">Add/Edit Allocation</h3>
+        <form id="allocForm" method="POST" action="{{ url_for('allocations') }}" onsubmit="syncSystemName()">
+            <input type="hidden" name="action" id="form_action" value="add">
+            <input type="hidden" name="system_name" id="form_system_name">
+            <div style="margin-bottom:24px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">System Name</label>
+                <input type="text" id="modal_system_name" readonly style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+            </div>
+            <div style="margin-bottom:24px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Team (Owner Group)</label>
+                <input type="text" name="owner_group" id="modal_owner_group" style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+            </div>
+            <div style="margin-bottom:24px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Current Allocation</label>
+                <input type="text" name="current_allocation" id="modal_allocation" required style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+            </div>
+            <div style="margin-bottom:24px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">End Date</label>
+                <input type="text" name="end_date" id="modal_end_date" placeholder="YYYY-MM-DD or Permanent" style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px;">
+            </div>
+            <div style="margin-bottom:32px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Notes</label>
+                <textarea name="notes" id="modal_notes" style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:12px; color:#fff; font-size:16px; height:120px; resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button type="button" onclick="hideModal()" style="flex:1; padding:16px; background:#334155; color:#e2e8f0; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Cancel</button>
+                <button type="submit" style="flex:1; padding:16px; background:#10b981; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function toggleFabMenu() {
+    const menu = document.getElementById('fabMenu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+function syncSystemName() {
+    document.getElementById('form_system_name').value = document.getElementById('modal_system_name').value.trim();
+    return true;
+}
+function showAddModal() {
+    document.getElementById('form_action').value = 'add';
+    document.getElementById('form_system_name').value = '';
+    document.getElementById('modal_system_name').value = '';
+    document.getElementById('modal_system_name').readOnly = false;
+    document.getElementById('modal_owner_group').value = '';
+    document.getElementById('modal_allocation').value = '';
+    document.getElementById('modal_end_date').value = '';
+    document.getElementById('modal_notes').value = '';
+    document.getElementById('allocModal').style.display = 'flex';
+    toggleFabMenu();
+}
+function editAllocation(system, allocation, endDate, team, notes) {
+    document.getElementById('form_action').value = 'edit';
+    document.getElementById('form_system_name').value = system;
+    document.getElementById('modal_system_name').value = system;
+    document.getElementById('modal_system_name').readOnly = true;
+    document.getElementById('modal_owner_group').value = team || '';
+    document.getElementById('modal_allocation').value = allocation || '';
+    document.getElementById('modal_end_date').value = endDate || '';
+    document.getElementById('modal_notes').value = notes || '';
+    document.getElementById('allocModal').style.display = 'flex';
+}
+function hideModal() {
+    document.getElementById('allocModal').style.display = 'none';
+}
+async function deleteAllocation(system) {
+    const displayName = system || 'this row';
+    if (!confirm('Delete ' + displayName + '? This cannot be undone.')) return;
+    const rowId = 'row-' + system.replace(/[^a-zA-Z0-9]/g, '_');
+    const rowElement = document.getElementById(rowId);
+    try {
+        const response = await fetch('{{ url_for("allocations") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                action: 'delete',
+                system_name: system
+            })
+        });
+        if (response.ok) {
+            if (rowElement) rowElement.style.display = 'none';
+            window.location.href = '{{ url_for("allocations") }}?t=' + Date.now();
+        } else {
+            alert('Delete failed on server. Please try again.');
+        }
+    } catch (e) {
+        console.error('Delete error:', e);
+        alert('Network error deleting row. Check console.');
+    }
+}
+function exportCSV() {
+    window.location = '{{ url_for("allocations") }}?export=csv';
+    toggleFabMenu();
+}
+</script>
+<style>
+.fab-button:hover { transform: scale(1.1); }
+#fabMenu a { display:block; padding:14px 24px; color:#fff; text-decoration:none; }
+#fabMenu a:hover { background:#334155; }
+.component-table th, .component-table td { padding:18px 24px; border-bottom:1px solid #334155; }
+.component-table tr:hover { background:#1e2937; }
+.component-table th { background:#0f172a; color:#fff; font-weight:600; }
+</style>
+{% endblock %}

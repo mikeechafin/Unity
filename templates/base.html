@@ -1,0 +1,171 @@
+<!-- Version: 2026-05-28 v1.12 -->
+<!-- Changes: Sorted hamburger menu items alphabetically for better usability. -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>{% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/styles.css?v=202505301210">
+    <style>
+        /* === HEADER EDIT ZONE - EDIT ONLY THIS SECTION FOR FUTURE FAST CHANGES === */
+        .header {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 70px !important;
+            background: linear-gradient(135deg, #c8102e, #a50f26) !important;
+            color: white !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            padding: 0 22px !important;
+            box-shadow: 0 6px 25px rgba(0,0,0,0.3) !important;
+            z-index: 1200 !important;
+            backdrop-filter: blur(20px) !important;
+            border-bottom: 2px solid rgba(255,255,255,0.25) !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            outline: none !important;
+            box-sizing: border-box !important;
+        }
+        .header:hover {
+            box-shadow: 0 10px 35px rgba(200,16,46,0.45) !important;
+            backdrop-filter: blur(24px) !important;
+            transform: translateY(1px) !important;
+        }
+        .logo img {
+            height: 40px !important;
+            transition: transform 0.3s ease !important;
+        }
+        .header:hover .logo img {
+            transform: scale(1.05) !important;
+        }
+        h1 {
+            margin: 0 !important;
+            font-size: 21px !important;
+            font-weight: 600 !important;
+            letter-spacing: 0.5px !important;
+            flex: 1 !important;
+            text-align: center !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            padding: 0 15px !important;
+        }
+        .user-info {
+            font-size: 15px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 12px !important;
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+        }
+        .username {
+            font-weight: 500 !important;
+        }
+        /* Hamburger - premium FAB-style pulse + hover glow */
+        .hamburger {
+            font-size: 34px !important;
+            cursor: pointer !important;
+            color: white !important;
+            padding: 6px 14px !important;
+            z-index: 1300 !important;
+            margin-right: 12px !important;
+            border-radius: 50% !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            animation: hamburgerPulse 2s infinite ease-in-out !important;
+        }
+        .hamburger:hover {
+            transform: scale(1.15) !important;
+            box-shadow: 0 0 0 10px rgba(255,255,255,0.35) !important;
+        }
+        @keyframes hamburgerPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.4); }
+            50% { box-shadow: 0 0 0 12px rgba(255,255,255,0); }
+        }
+        .container {
+            padding-top: 94px !important;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <!-- Hamburger Icon -->
+        <div class="hamburger">☰</div>
+        <div class="logo">
+            <img src="/static/oracle_logo_trimmed.png" alt="Oracle Logo">
+        </div>
+        <h1>{% block page_title %}{% endblock %}</h1>
+        <div class="user-info">
+            {% if current_user.is_authenticated %}
+                <span class="username">{{ current_user.id }}</span>
+                <span class="separator"> | </span>
+                <a href="/logout" class="logout">Logout</a>
+            {% else %}
+                <a href="/login" class="login">Login</a>
+            {% endif %}
+        </div>
+    </header>
+    <!-- Slide-out Side Menu -->
+    <div id="sideMenu" class="side-menu" style="height:100% !important; width:0 !important; position:fixed !important; z-index:99999 !important; top:0 !important; left:0 !important; background-color:#222 !important; overflow-x:hidden !important; transition:0.4s cubic-bezier(0.4, 0, 0.2, 1) !important; padding-top:80px !important; box-shadow:4px 0 20px rgba(0,0,0,0.4) !important; box-sizing:border-box !important;">
+        <span class="closebtn" onclick="toggleMenu()" style="position:absolute !important; top:0 !important; right:25px !important; font-size:36px !important; color:white !important; cursor:pointer !important;">×</span>
+
+        <!-- Alphabetically sorted menu items -->
+        <a href="/access/" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">🔑 Access Management</a>
+        <a href="/agent/" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">🤖 Agent Management</a>
+        <a href="/asrm/" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">📡 ASRM Management</a>
+        <a href="{{ url_for('setup.setup_environment') }}" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">⚙️ Environment Setup</a>
+        <a href="{{ url_for('fault.dashboard') }}" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">🛠️ Fault Testing Dashboard</a>
+        <a href="/" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">🏠 Home</a>
+        <a href="/ilom/" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">🖥️ ILOM Management</a>
+        <a href="/jobs/scheduled_jobs" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">📋 Job Management</a>
+        <a href="/migration/results" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">📊 Live Migration Results</a>
+        <a href="/topology" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">🌐 Network Topology</a>
+        <a href="/oedacli" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">🧪 OEDACLI Console</a>
+        <a href="/rti/" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">📡 Real Time Insights</a>
+        <a href="/switches/" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">🔀 Switch Management</a>
+        <a href="/allocations" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">📦 System Allocations</a>
+
+        {% if current_user.has_role('admin') %}
+        <a href="/users" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">👤 User Management</a>
+        {% endif %}
+        {% if current_user.is_authenticated %}
+        <a href="/change_password" style="padding:14px 24px !important; text-decoration:none !important; font-size:18px !important; color:#f1f1f1 !important; display:block !important;">🔑 Change My Password</a>
+        {% endif %}
+    </div>
+    <!-- Backdrop -->
+    <div id="menuOverlay" class="overlay" onclick="toggleMenu()" style="position:fixed !important; top:0 !important; left:0 !important; width:100% !important; height:100% !important; background:rgba(0,0,0,0.5) !important; z-index:99998 !important; opacity:0 !important; visibility:hidden !important; transition:opacity 0.4s !important;"></div>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    <script>
+        function toggleMenu() {
+            const menu = document.getElementById("sideMenu");
+            const overlay = document.getElementById("menuOverlay");
+            if (menu.style.width === "280px") {
+                menu.style.width = "0";
+                overlay.style.opacity = "0";
+                setTimeout(() => overlay.style.visibility = "hidden", 400);
+            } else {
+                menu.style.width = "280px";
+                overlay.style.visibility = "visible";
+                overlay.style.opacity = "1";
+            }
+        }
+        window.addEventListener('load', function() {
+            const hamburger = document.querySelector('.hamburger');
+            if (hamburger) {
+                hamburger.addEventListener('click', function(e) {
+                    e.stopImmediatePropagation();
+                    toggleMenu();
+                });
+            }
+        });
+    </script>
+</body>
+</html>

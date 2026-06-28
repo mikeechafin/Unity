@@ -1,0 +1,748 @@
+textVersion: 2026-05-28 v5.33
+Changes: Fixed real-time UI updates for running ASR Hardware Fault Tests by reordering switchTab() before initial load in createTab (prevents activeTab guard from blocking first render + polling).
+{% extends "base.html" %}
+{% block title %}Fault Testing Dashboard{% endblock %}
+{% block page_title %}FAULT TESTING DASHBOARD{% endblock %}
+
+{% block content %}
+<div class="setup-container" style="padding-bottom: 140px;">
+
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="margin:0; font-size:28px; color:#fff;">Fault Testing Dashboard</h2>
+    </div>
+
+    <!-- ASR Hardware Fault Simulation Test -->
+    <div style="background:#1f2937; padding:28px; border-radius:16px; margin-bottom:28px;">
+        <h3 style="color:#fff; margin-top:0;">ASR Hardware Fault Simulation Test</h3>
+        <p style="color:#cbd5e1;">Test full ASR pipeline: simulated disk failure → MS alert → SNMP → ASR Manager → FEMS/SR creation.</p>
+        <form id="asr-form">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:20px;">
+                <div>
+                    <label style="display:block; margin-bottom:6px; color:#94a3b8; font-size:13px;">Target Type</label>
+                    <select name="target_type" id="target_type" required style="width:100%; padding:14px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                        <option value="Storage Server">Storage Server (CELL)</option>
+                        <option value="Database Server">Database Server (COMPUTE)</option>
+                        <option value="Cisco Switch">Cisco Switch</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block; margin-bottom:6px; color:#94a3b8; font-size:13px;">Host</label>
+                    <select name="host" id="host" required style="width:100%; padding:14px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                        <option value="">-- Select Host --</option>
+                        {% for host in hosts %}
+                        <option value="{{ host }}">{{ host | replace('-ilom.us.oracle.com', '') | replace('-ilom', '') }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div id="device_type_section" style="display:none; margin-top:20px;">
+                <label style="display:block; font-weight:600; color:#e2e8f0; margin-bottom:8px;">Device Type</label>
+                <div style="background:#334155; padding:16px; border-radius:12px;">
+                    <label style="margin-right:24px; color:#e2e8f0;">
+                        <input type="radio" name="device_type" value="Disk" checked> Disk Fault
+                    </label>
+                    <label style="color:#e2e8f0;">
+                        <input type="radio" name="device_type" value="Flash"> Flash Fault
+                    </label>
+                </div>
+            </div>
+
+            <div style="margin-top:24px;">
+                <label style="display:block; margin:20px 0 10px; color:#e2e8f0;">
+                    <input type="checkbox" name="auto_clear" checked> Auto-clear simulated failure after test
+                </label>
+
+                <button type="submit" style="margin-top:20px; padding:16px 32px; background:#10b981; color:#fff; border:none; border-radius:9999px; font-size:16px; font-weight:600;">
+                    Run ASR Hardware Fault Test
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ILOM Fault Tests -->
+    <div style="background:#1f2937; padding:28px; border-radius:16px; margin-bottom:32px;">
+        <h3 style="color:#fff; margin-top:0;">ILOM Fault Tests</h3>
+        
+        <h4 style="color:#e2e8f0; margin:20px 0 12px;">Start New Full Test</h4>
+        <form method="POST" action="/fault/dashboard" id="full-test-form" style="display:flex; gap:12px; align-items:center;">
+            <select name="full_host" id="full_host" required style="flex:1; padding:14px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                <option value="">-- Select Host --</option>
+                {% for host in hosts %}
+                <option value="{{ host }}">{{ host }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" style="padding:14px 28px; background:#10b981; color:#fff; border:none; border-radius:9999px; font-weight:600;">Run Full Test</button>
+        </form>
+
+        <hr style="border-color:#475569; margin:28px 0;">
+
+        <h4 style="color:#e2e8f0; margin-bottom:12px;">Partial Test (Select Ereports)</h4>
+        <form method="GET" action="/fault/dashboard" id="fetch-form" style="display:flex; gap:12px; align-items:center;">
+            <select name="fetch_host" required style="flex:1; padding:14px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                <option value="">-- Select Host --</option>
+                {% for host in hosts %}
+                <option value="{{ host }}" {% if fetch_host == host %}selected{% endif %}>{{ host }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" id="fetch-btn" style="padding:14px 24px; background:#334155; color:#fff; border:none; border-radius:9999px;">Fetch Ereports</button>
+        </form>
+
+        {% if ereports_list %}
+        <div id="ereport_panel" style="max-height:320px; overflow-y:auto; background:#334155; padding:20px; border-radius:12px; margin-top:20px;">
+            <h5 style="color:#e2e8f0;">Available Ereports on {{ fetch_host }} (check one or more)</h5>
+            <form method="POST" action="/fault/dashboard" id="partial-run-form">
+                <input type="hidden" name="selected_host" value="{{ fetch_host }}">
+                {% for e in ereports_list %}
+                <div style="margin:10px 0; color:#e2e8f0;">
+                    <label><input type="checkbox" name="ereport" value="{{ e }}"> {{ e }}</label>
+                </div>
+                {% endfor %}
+            </form>
+        </div>
+        <button id="run-btn" type="submit" form="partial-run-form" style="margin-top:16px; padding:14px 28px; background:#10b981; color:#fff; border:none; border-radius:9999px; font-weight:600; display:none;">
+            🚀 Run Selected Ereports
+        </button>
+        {% elif fetch_host %}
+        <div style="margin-top:20px; padding:20px; background:#334155; border-radius:12px; color:#f87171;">
+            No ereports returned or fetch failed.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Fault Test Runs Table -->
+    <h3 style="color:#fff; margin:40px 0 12px;">Fault Test Runs</h3>
+    <div class="table-wrapper" style="max-height:792px; overflow:auto; border:1px solid #334155; border-radius:12px; background:#111827; box-shadow:0 4px 15px rgba(0,0,0,0.3);">
+        <table class="component-table" style="width:100%; table-layout:auto;">
+            <thead style="position:sticky; top:0; z-index:10; background:#0f172a;">
+                <tr>
+                    <th style="padding:18px 24px;">Run ID</th>
+                    <th style="padding:18px 24px;">Host</th>
+                    <th style="padding:18px 24px;">Model</th>
+                    <th style="padding:18px 24px;">Start</th>
+                    <th style="padding:18px 24px;">End</th>
+                    <th style="padding:18px 24px;">Status</th>
+                    <th style="padding:18px 24px; text-align:center;">Ereports</th>
+                    <th style="padding:18px 24px; text-align:center;">Injected</th>
+                    <th style="padding:18px 24px; text-align:center;">MS Alerts</th>
+                    <th style="padding:18px 24px; text-align:center;">EM Incidents</th>
+                    <th style="padding:18px 24px; text-align:center;">Details</th>
+                    <th style="padding:18px 24px; text-align:center;">Log</th>
+                </tr>
+            </thead>
+            <tbody id="runs-tbody"></tbody>
+        </table>
+    </div>
+
+    <div id="pagination-controls" style="margin: 24px 0; text-align: center;">
+        <button id="btn-prev" onclick="prevPage()" style="padding:10px 20px; margin:0 6px; background:#334155; color:#fff; border:none; border-radius:9999px;">← Previous</button>
+        <span style="margin:0 20px; font-weight:600; color:#e2e8f0;">Page <span id="current-page">1</span> of <span id="total-pages">1</span></span>
+        <button id="btn-next" onclick="nextPage()" style="padding:10px 20px; margin:0 6px; background:#334155; color:#fff; border:none; border-radius:9999px;">Next →</button>
+    </div>
+
+    <!-- Results Tabs -->
+    <h3 style="color:#fff; margin:40px 0 12px;">Results</h3>
+    <div id="log-tabs" style="margin-bottom:12px; display:flex; flex-wrap:wrap; gap:8px;"></div>
+    
+    <div style="overflow-x:auto; border:1px solid #334155; border-radius:12px; background:#1f2937;">
+        <div id="tab-content" style="padding:24px; min-width:2200px; min-height:520px; position:relative;"></div>
+    </div>
+</div>
+
+<!-- Persistent Artifact Modal -->
+<div id="artifactModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:2000; overflow:auto;">
+    <div style="max-width:1200px; margin:40px auto; background:#1f2937; border-radius:16px; padding:24px; position:relative;">
+        <button onclick="closeArtifactModal()" style="position:absolute; top:16px; right:16px; background:#ef4444; color:white; border:none; border-radius:9999px; width:36px; height:36px; font-size:20px; cursor:pointer;">×</button>
+        <h3 style="color:#fff; margin-top:0;">Artifact</h3>
+        <pre id="artifactContent" style="background:#334155; color:#e2e8f0; padding:20px; border-radius:12px; white-space:pre-wrap; max-height:70vh; overflow:auto; font-size:13px; display:block;"></pre>
+        <img id="artifactImage" style="display:none; max-width:100%; height:auto; border:1px solid #475569; border-radius:8px; margin:0 auto;" />
+    </div>
+</div>
+
+<!-- Floating Green Ball FAB -->
+<button onclick="toggleFabMenu()" class="fab-button"
+        style="position:fixed; bottom:120px; right:40px; width:64px; height:64px; background:#10b981; border:none; border-radius:9999px; color:#fff; font-size:28px; box-shadow:0 10px 30px rgba(16,185,129,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; cursor:pointer;">
+    +
+</button>
+
+<!-- FAB Menu -->
+<div id="fabMenu" style="display:none; position:fixed; bottom:200px; right:40px; background:#1f2937; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; min-width:200px; z-index:1001;">
+    <a onclick="refreshRunsTable(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">🔄 Refresh Runs Table</a>
+    <a onclick="clearAllTabs(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">🗑️ Clear All Tabs</a>
+</div>
+
+<script src="/static/socket.io.js"></script>
+<script>
+console.log('=== v5.32 – tab leak fix only (original layout restored) ===');
+const socket = io();
+let tabElements = {};
+let pollingIntervals = {};
+let terminalTabs = new Set();
+let activeTab = null;
+let openTabs = JSON.parse(localStorage.getItem('openFaultTabs') || '[]');
+let tableRefreshInterval = null;
+let hasAnyRunning = false;
+let currentPage = 1;
+let totalPages = 1;
+let allHosts = [];
+
+function cleanRunId(id) {
+    return String(id).replace(/^(detail-|console-)/, '');
+}
+
+function filterHosts() {
+    const targetType = document.getElementById('target_type').value;
+    const hostSelect = document.getElementById('host');
+    if (!hostSelect) return;
+    hostSelect.innerHTML = '<option value="">-- Select Host --</option>';
+    let filtered = allHosts;
+    if (targetType === 'Storage Server') filtered = allHosts.filter(h => h.value.toLowerCase().includes('celadm'));
+    else if (targetType === 'Database Server') filtered = allHosts.filter(h => h.value.toLowerCase().includes('adm') && !h.value.toLowerCase().includes('celadm'));
+    else if (targetType === 'Cisco Switch') filtered = allHosts.filter(h => h.value.toLowerCase().includes('sw'));
+    filtered.forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h.value;
+        opt.textContent = h.display;
+        hostSelect.appendChild(opt);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const hostSelect = document.getElementById('host');
+    if (hostSelect) {
+        allHosts = Array.from(hostSelect.options).slice(1).map(opt => ({
+            value: opt.value,
+            display: opt.textContent
+        }));
+    }
+    const targetType = document.getElementById('target_type');
+    const deviceSection = document.getElementById('device_type_section');
+    if (targetType && deviceSection) {
+        function toggleDeviceSection() {
+            deviceSection.style.display = (targetType.value === 'Storage Server') ? 'block' : 'none';
+            filterHosts();
+        }
+        targetType.addEventListener('change', toggleDeviceSection);
+        toggleDeviceSection();
+    }
+    const fetchForm = document.getElementById('fetch-form');
+    const fetchBtn = document.getElementById('fetch-btn');
+    if (fetchForm && fetchBtn) {
+        fetchForm.addEventListener('submit', () => {
+            fetchBtn.innerHTML = '🔄 Fetching Ereports...';
+            fetchBtn.disabled = true;
+        });
+    }
+    if (document.getElementById('ereport_panel')) {
+        const fetchBtn2 = document.getElementById('fetch-btn');
+        const runBtn = document.getElementById('run-btn');
+        if (fetchBtn2) fetchBtn2.style.display = 'none';
+        if (runBtn) runBtn.style.display = 'inline-block';
+    }
+    openTabs = openTabs.filter(tab => !tab.id.startsWith('temp-'));
+    localStorage.setItem('openFaultTabs', JSON.stringify(openTabs));
+    openTabs.forEach(tab => {
+        const fullId = tab.id.startsWith('detail-') ? tab.id : `detail-${tab.id}`;
+        if (!tabElements[fullId]) {
+            const t = document.createElement('div');
+            t.style.cssText = 'display:inline-flex;align-items:center;padding:8px 16px;border-radius:8px;margin-right:6px;cursor:pointer;border:1px solid #475569;background:#334155;color:#e2e8f0;';
+            t.innerHTML = `<span style="margin-right:10px">${tab.label}</span><span style="font-weight:bold;font-size:18px;cursor:pointer;color:#94a3b8" onclick="event.stopImmediatePropagation();closeTab('${fullId}')">×</span>`;
+            t.onclick = () => switchTab(fullId);
+            document.getElementById('log-tabs').appendChild(t);
+            tabElements[fullId] = t;
+            showLoadingInTab(fullId, fullId.replace('detail-', ''));
+            loadHistoricalData(fullId);
+        }
+    });
+    refreshRunsTable(1);
+    startSmartTablePolling();
+});
+
+function applyTerminalColor(taskId, status) {
+    taskId = String(taskId);
+    const tab = tabElements[taskId];
+    if (!tab) return;
+    let realStatus = status.toUpperCase();
+    if (realStatus.includes('MAR') || realStatus.length > 10) realStatus = 'COMPLETED';
+    if (realStatus === 'FAILED') {
+        tab.style.setProperty('background-color', '#dc3545', 'important');
+        tab.style.setProperty('color', 'white', 'important');
+    } else if (realStatus === 'COMPLETED') {
+        tab.style.setProperty('background-color', '#28a745', 'important');
+        tab.style.setProperty('color', 'white', 'important');
+    }
+}
+
+function hasContent(str) {
+    return str && typeof str === 'string' && str.trim().length > 30;
+}
+
+function buildModernTable(data) {
+    try {
+        const steps = data.steps || [];
+        let html = `<table class="component-table" style="width:100%; table-layout:auto; min-width:2200px;"><thead style="position:sticky; top:0; z-index:10; background:#0f172a;"><tr style="background:#0f172a; color:#f1f5f9;"><th>Step</th><th>Status</th><th>Details</th><th>Artifacts</th></tr></thead><tbody>`;
+        steps.forEach((s, idx) => {
+            try {
+                let name = String(s.name || `Step ${idx+1}`);
+                let status = String(s.status || 'Unknown');
+                let details = String(s.details || '');
+                let rawContent = String(s.raw || '').trim();
+                if (details.includes('NoneType') || details.includes('requires string')) {
+                    details = '<span style="color:#f87171;font-weight:bold;">Backend verification error (NoneType) – check server logs</span>';
+                }
+                const cls = {'passed':'bg-success','failed':'bg-danger','running':'bg-warning','info':'bg-info','not executed':'bg-secondary'}[status.toLowerCase()] || 'bg-secondary';
+                let artHtml = '';
+                const screenshot = s.screenshot || null;
+                const hasRaw = hasContent(rawContent);
+                if (screenshot && screenshot.startsWith('/static/')) {
+                    const artId = `art-${idx}`;
+                    artHtml = `<button onclick="showArtifactWithScreenshot('${screenshot}', '${artId}'); event.stopImmediatePropagation();" style="background:#334155;color:#60a5fa;padding:6px 12px;border:none;border-radius:6px;cursor:pointer;">🖼️ View Screenshot + Raw</button>`;
+                    if (hasRaw) {
+                        artHtml += `<div id="${artId}" style="display:none;">${rawContent}</div>`;
+                    }
+                } else if (hasRaw) {
+                    const artId = `art-${idx}`;
+                    artHtml = `<button onclick="showArtifactModal('${artId}'); event.stopImmediatePropagation();" style="background:#334155;color:#60a5fa;padding:6px 12px;border:none;border-radius:6px;cursor:pointer;">📄 View Raw Artifact</button>
+                               <div id="${artId}" style="display:none;">${rawContent}</div>`;
+                } else {
+                    artHtml = '<span style="color:#64748b;">No artifact data</span>';
+                }
+                html += `<tr><td title="${name}"><strong>${name}</strong></td><td><span class="badge ${cls}">${status}</span></td><td style="color:#e2e8f0 !important;">${details}</td><td>${artHtml}</td></tr>`;
+            } catch (stepErr) {
+                html += `<tr><td>Step ${idx+1}</td><td>Error</td><td style="color:#f87171 !important;">Backend error (NoneType) – check server logs</td><td></td></tr>`;
+            }
+        });
+        html += '</tbody></table>';
+        return html;
+    } catch (e) {
+        console.error("Table render error:", e);
+        return `<div style="color:#f87171;padding:20px;">Table data unavailable (safe fallback applied)</div>`;
+    }
+}
+
+function buildLegacyILOMTable(data) {
+    const steps = data.steps || [];
+    let html = `<table class="component-table" style="width:100%; table-layout:auto; min-width:2200px;"><thead style="position:sticky; top:0; z-index:10; background:#0f172a;"><tr style="background:#0f172a; color:#f1f5f9;"><th>Ereport</th><th>Status</th><th>UUID</th><th>MS Alert</th><th>EM Results</th><th>SNMP Received</th><th>SNMP Sent</th><th>Notes</th></tr></thead><tbody>`;
+    steps.forEach(s => {
+        html += `<tr>`;
+        html += `<td title="${String(s.name || '-')}">${String(s.name || '-')}</td>`;
+        html += `<td>${String(s.status || '-')}</td>`;
+        html += `<td title="${String(s.uuid || '-')}">${String(s.uuid || '-')}</td>`;
+        html += `<td>${String(s.ms_alert || '-')}</td>`;
+        html += `<td title="${String(s.details || '-')}">${String(s.details || '-')}</td>`;
+        html += `<td>${String(s.snmp_received || 'Unknown')}</td>`;
+        html += `<td>${String(s.snmp_sent || 'Unknown')}</td>`;
+        html += `<td>${String(s.details || '-')}</td>`;
+        html += `</tr>`;
+    });
+    html += '</tbody></table>';
+    return html;
+}
+
+function showArtifactModal(artId) {
+    const hiddenDiv = document.getElementById(artId);
+    if (!hiddenDiv) return;
+    const content = hiddenDiv.innerHTML || hiddenDiv.textContent;
+    const modal = document.getElementById('artifactModal');
+    const pre = document.getElementById('artifactContent');
+    pre.textContent = content;
+    pre.style.display = 'block';
+    const img = document.getElementById('artifactImage');
+    if (img) img.style.display = 'none';
+    modal.style.display = 'block';
+}
+
+function showScreenshotModal(screenshotPath) {
+    const modal = document.getElementById('artifactModal');
+    const pre = document.getElementById('artifactContent');
+    let img = document.getElementById('artifactImage');
+    if (!img) {
+        img = document.createElement('img');
+        img.id = 'artifactImage';
+        img.style.cssText = 'max-width:100%; height:auto; border:1px solid #475569; border-radius:8px; display:block; margin:0 auto;';
+        pre.parentNode.insertBefore(img, pre);
+    }
+    pre.style.display = 'none';
+    img.src = screenshotPath;
+    img.style.display = 'block';
+    modal.style.display = 'block';
+}
+
+function showArtifactWithScreenshot(screenshotPath, artId) {
+    const hiddenDiv = document.getElementById(artId);
+    const rawContent = hiddenDiv ? (hiddenDiv.innerHTML || hiddenDiv.textContent || '') : 'No additional raw data captured for this step.';
+    const modal = document.getElementById('artifactModal');
+    const pre = document.getElementById('artifactContent');
+    const img = document.getElementById('artifactImage');
+    pre.textContent = rawContent;
+    pre.style.display = 'block';
+    if (img) {
+        img.src = screenshotPath;
+        img.style.display = 'block';
+    } else {
+        const newImg = document.createElement('img');
+        newImg.id = 'artifactImage';
+        newImg.style.cssText = 'max-width:100%; height:auto; border:1px solid #475569; border-radius:8px; display:block; margin:16px auto;';
+        pre.parentNode.insertBefore(newImg, pre);
+        newImg.src = screenshotPath;
+    }
+    modal.style.display = 'block';
+}
+
+function closeArtifactModal() {
+    const modal = document.getElementById('artifactModal');
+    const pre = document.getElementById('artifactContent');
+    const img = document.getElementById('artifactImage');
+    pre.style.display = 'block';
+    pre.textContent = '';
+    if (img) img.style.display = 'none';
+    modal.style.display = 'none';
+}
+
+function showLoadingInTab(taskId, runId) {
+    taskId = String(taskId);
+    runId = cleanRunId(runId);
+    document.getElementById('tab-content').innerHTML = `
+        <div class="alert alert-info" style="background:#334155;color:#e2e8f0;">
+            <strong>🚀 Partial ILOM test running (Run #${runId})...</strong><br>
+            Injecting selected ereports. Please wait 30-90s per ereport.<br>
+            Tab will update automatically.<br><br>
+            <button onclick="manualRefreshTab('${taskId}')" style="background:#334155;color:#fff;">🔄 Force Refresh Tab Now</button>
+            <button onclick="viewRawJson('${taskId}')" style="background:#334155;color:#fff;margin-left:8px;">📊 View Raw JSON</button>
+        </div>`;
+}
+
+function showCompletedNoDetails(taskId, runId) {
+    taskId = String(taskId);
+    runId = cleanRunId(runId);
+    document.getElementById('tab-content').innerHTML = `
+        <div class="alert alert-warning" style="background:#334155;color:#e2e8f0;">
+            <strong>✅ Test completed (Run #${runId})</strong><br>
+            No detail rows were saved (normal for some partial runs).<br><br>
+            <button onclick="openDetailTab('${runId}', 'ILOM Fault Test')" style="background:#334155;color:#fff;">📋 View Full Terminal Log</button>
+            <button onclick="viewRawJson('${taskId}')" style="background:#334155;color:#fff;margin-left:8px;">📊 View Raw JSON</button>
+        </div>`;
+}
+
+function viewRawJson(taskId) {
+    taskId = String(taskId);
+    let fetchId = cleanRunId(taskId);
+    fetch(`/fault/load_run_data/${fetchId}`)
+        .then(res => res.json())
+        .then(data => {
+            alert('Raw JSON from backend:\n\n' + JSON.stringify(data, null, 2));
+        })
+        .catch(e => alert('Error fetching raw JSON: ' + e));
+}
+
+function manualRefreshTab(taskId) {
+    loadHistoricalData(taskId);
+}
+
+function loadHistoricalData(taskId) {
+    taskId = String(taskId);
+    // Guard against stale content from closed tabs
+    if (activeTab !== taskId) {
+        return;
+    }
+    let fetchId = cleanRunId(taskId);
+    return fetch(`/fault/load_run_data/${fetchId}`)
+        .then(res => res.json())
+        .then(data => {
+            if (activeTab !== taskId) {
+                return; // Tab was closed while fetching
+            }
+            const isASR = (data.model || '').toString().includes('ASR Hardware Fault Test');
+            let realStatus = (data.run_status || 'RUNNING').toUpperCase();
+            if (realStatus.includes('MAR') || realStatus.length > 10) realStatus = 'COMPLETED';
+            const steps = data.steps || [];
+            const isTerminal = ['FAILED', 'COMPLETED'].includes(realStatus);
+
+            if (steps.length === 0 && realStatus === 'RUNNING') {
+                showLoadingInTab(taskId, fetchId);
+            } else if (steps.length === 0 && realStatus === 'COMPLETED') {
+                showCompletedNoDetails(taskId, fetchId);
+            } else {
+                if (isTerminal) {
+                    terminalTabs.add(taskId);
+                    if (pollingIntervals[taskId]) { clearInterval(pollingIntervals[taskId]); delete pollingIntervals[taskId]; }
+                }
+                document.getElementById('tab-content').innerHTML = (isASR ? buildModernTable(data) : buildLegacyILOMTable(data));
+                if (isTerminal && steps.length > 0) applyTerminalColor(taskId, realStatus);
+            }
+            refreshRunsTable();
+        })
+        .catch(e => {
+            if (activeTab === taskId) {
+                console.error("[DEBUG v5.32 load error]", e);
+                showLoadingInTab(taskId, fetchId);
+            }
+        });
+}
+
+function refreshRunsTable(page = null) {
+    if (page !== null) currentPage = page;
+    fetch(`/fault/get_runs_json?page=${currentPage}`)
+        .then(res => res.json())
+        .then(data => {
+            let html = '';
+            let runningCount = 0;
+            data.runs.forEach(run => {
+                let status = (run[5] || 'COMPLETED').toString();
+                if (status.includes('MAR') || status.length > 10) status = 'COMPLETED';
+                if (status === 'RUNNING') runningCount++;
+                const cls = status === 'RUNNING' ? 'status-running' : status === 'FAILED' ? 'status-failed' : 'status-completed';
+                const runId = String(run[0]);
+                html += `<tr style="background:#1f2937;color:#e2e8f0 !important;"><td>${runId}</td><td title="${run[1]}">${run[1]}</td><td>${run[2]||'-'}</td><td>${run[3]}</td><td>${run[4]||'-'}</td>
+                    <td class="${cls}">${status}</td>
+                    <td>${run[2]==='ASR Hardware Fault Test'?'N/A':(run[6]||'0')}</td>
+                    <td>${run[2]==='ASR Hardware Fault Test'?'N/A':(run[7]||'0')}</td>
+                    <td>${run[2]==='ASR Hardware Fault Test'?'N/A':(run[8]||'0')}</td>
+                    <td>${run[2]==='ASR Hardware Fault Test'?'N/A':(run[9]||'0')}</td>
+                    <td><a href="#" onclick="openDetailTab('${runId}', '${(run[2]||'').replace(/'/g,"\\'")}', '${(run[1]||'').replace(/'/g,"\\'")}'); return false;" style="color:#60a5fa;">View Details</a></td>
+                    <td>${run[2]==='ASR Hardware Fault Test' ? `<a href="#" onclick="showASRConsoleLog('${runId}'); return false;" style="color:#60a5fa;">View Log</a>` : `<a href="#" onclick="openLogTab('${runId}', '${(run[2]||'').replace(/'/g,"\\'")}'); return false;" style="color:#60a5fa;">View Log</a>`}</td></tr>`;
+            });
+            document.getElementById('runs-tbody').innerHTML = html;
+            totalPages = data.total_pages || 1;
+            currentPage = data.page || 1;
+            document.getElementById('current-page').textContent = currentPage;
+            document.getElementById('total-pages').textContent = totalPages;
+            document.getElementById('btn-prev').disabled = (currentPage <= 1);
+            document.getElementById('btn-next').disabled = (currentPage >= totalPages);
+            const shouldFastPoll = runningCount > 0;
+            if (shouldFastPoll !== hasAnyRunning) {
+                hasAnyRunning = shouldFastPoll;
+                startSmartTablePolling();
+            }
+        });
+}
+
+function prevPage() { if (currentPage > 1) refreshRunsTable(currentPage - 1); }
+function nextPage() { if (currentPage < totalPages) refreshRunsTable(currentPage + 1); }
+
+function startSmartTablePolling() {
+    if (tableRefreshInterval) clearInterval(tableRefreshInterval);
+    const intervalMs = hasAnyRunning ? 3000 : 30000;
+    tableRefreshInterval = setInterval(() => refreshRunsTable(), intervalMs);
+}
+
+function startPolling(taskId) {
+    taskId = String(taskId);
+    if (terminalTabs.has(taskId) || pollingIntervals[taskId]) return;
+    pollingIntervals[taskId] = setInterval(() => loadHistoricalData(taskId), 1500);
+}
+
+function createTab(taskId, label) {
+    taskId = String(taskId);
+    if (tabElements[taskId]) return;
+    const tabs = document.getElementById('log-tabs');
+    const tab = document.createElement('div');
+    tab.style.cssText = 'display:inline-flex;align-items:center;padding:8px 16px;border-radius:8px;margin-right:6px;cursor:pointer;border:1px solid #475569;background:#334155;color:#e2e8f0;';
+    tab.innerHTML = `<span style="margin-right:10px">${label}</span><span style="font-weight:bold;font-size:18px;cursor:pointer;color:#94a3b8" onclick="event.stopImmediatePropagation();closeTab('${taskId}')">×</span>`;
+    tab.onclick = () => switchTab(taskId);
+    tabs.appendChild(tab);
+    tabElements[taskId] = tab;
+
+    // Set active tab FIRST so the guard in loadHistoricalData doesn't block the initial load
+    switchTab(taskId);
+
+    showLoadingInTab(taskId, cleanRunId(taskId));
+    loadHistoricalData(taskId).then(() => {
+        if (!terminalTabs.has(taskId)) startPolling(taskId);
+    });
+
+    if (!taskId.startsWith('temp-')) {
+        openTabs.push({id: taskId, label});
+        localStorage.setItem('openFaultTabs', JSON.stringify(openTabs));
+    }
+}
+
+function switchTab(taskId) {
+    taskId = String(taskId);
+    document.getElementById('tab-content').innerHTML = '';
+    activeTab = taskId;
+    Object.values(tabElements).forEach(t => t.style.fontWeight = 'normal');
+    if (tabElements[taskId]) tabElements[taskId].style.fontWeight = 'bold';
+    loadHistoricalData(taskId);
+}
+
+function closeTab(taskId) {
+    taskId = String(taskId);
+    const wasActive = (activeTab === taskId);
+    if (tabElements[taskId]) tabElements[taskId].remove();
+    delete tabElements[taskId];
+    if (pollingIntervals[taskId]) { clearInterval(pollingIntervals[taskId]); delete pollingIntervals[taskId]; }
+    terminalTabs.delete(taskId);
+    openTabs = openTabs.filter(t => t.id !== taskId);
+    localStorage.setItem('openFaultTabs', JSON.stringify(openTabs));
+    if (wasActive) {
+        const contentEl = document.getElementById('tab-content');
+        if (contentEl) contentEl.innerHTML = '';
+        if (openTabs.length > 0) {
+            const nextTab = openTabs[openTabs.length - 1].id;
+            setTimeout(() => {
+                if (activeTab === taskId) {
+                    switchTab(nextTab);
+                }
+            }, 40);
+        } else {
+            if (contentEl) {
+                contentEl.innerHTML = '<div style="color:#64748b; padding: 40px; text-align:center;">✅ All tabs closed. Select a result from the table above.</div>';
+            }
+            activeTab = null;
+        }
+    }
+}
+
+function clearAllTabs() {
+    if (!confirm('Close ALL tabs?')) return;
+    Object.keys(tabElements).forEach(id => {
+        if (tabElements[id]) tabElements[id].remove();
+        if (pollingIntervals[id]) clearInterval(pollingIntervals[id]);
+    });
+    tabElements = {}; pollingIntervals = {}; terminalTabs.clear(); openTabs = [];
+    localStorage.setItem('openFaultTabs', '[]');
+    document.getElementById('tab-content').innerHTML = '<div style="color:#64748b;">✅ All tabs cleared.</div>';
+    activeTab = null;
+}
+
+function openDetailTab(runId, model, hostname = '') {
+    runId = cleanRunId(runId);
+    const tabId = `detail-${runId}`;
+    if (tabElements[tabId]) { switchTab(tabId); return; }
+    let hostPart = hostname ? ` on ${hostname}` : '';
+    let label = model.includes('ASR')
+        ? `ASR Hardware Fault Test${hostPart}`
+        : `ILOM Fault Test – ${model}${hostPart} – Run ${runId}`;
+    createTab(tabId, label);
+}
+
+function openLogTab(runId, model = '') {
+    runId = cleanRunId(runId);
+    const tabId = `detail-${runId}`;
+    if (tabElements[tabId]) { switchTab(tabId); return; }
+    let label = model.includes('ASR')
+        ? `ASR Hardware Fault Test Log – Run ${runId}`
+        : `ILOM Fault Test Log – ${model} – Run ${runId}`;
+    createTab(tabId, label);
+}
+
+function showASRConsoleLog(runId) {
+    runId = cleanRunId(runId);
+    openDetailTab(runId, 'ASR Hardware Fault Test');
+}
+
+document.getElementById('asr-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    // Capture the selected host for better tab labeling
+    const selectedHost = formData.get('host') || '';
+    try {
+        const res = await fetch('/fault/asr_test', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await res.json();
+        if (data.success && data.test_id) {
+            const realTabId = `detail-${cleanRunId(data.test_id)}`;
+            const hostPart = selectedHost ? ` on ${selectedHost}` : '';
+            createTab(realTabId, `ASR Hardware Fault Test${hostPart}`);
+            refreshRunsTable();
+        }
+    } catch(err) { console.error(err); }
+});
+
+document.getElementById('full-test-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const btn = this.querySelector('button');
+    const originalText = btn.textContent;
+    btn.textContent = '🚀 Starting full test...';
+    btn.disabled = true;
+    try {
+        await fetch('/fault/dashboard', { method: 'POST', body: formData });
+        refreshRunsTable();
+        setTimeout(() => {
+            const rows = document.querySelectorAll('#runs-tbody tr');
+            if (rows.length > 0) {
+                const runId = cleanRunId(rows[0].cells[0].textContent.trim());
+                const host = formData.get('full_host') || '';
+                openDetailTab(runId, 'ILOM Fault Test', host);
+            }
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }, 2500);
+    } catch(err) {
+        console.error(err);
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+});
+
+document.addEventListener('submit', function(e) {
+    if (e.target.id === 'partial-run-form') {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        formData.append('run_selected', '1');
+        const runBtn = document.getElementById('run-btn');
+        if (runBtn) {
+            runBtn.innerHTML = '🚀 Starting test...';
+            runBtn.disabled = true;
+        }
+        fetch('/fault/dashboard', { method: 'POST', body: formData })
+            .then(() => {
+                refreshRunsTable();
+                setTimeout(() => {
+                    const rows = document.querySelectorAll('#runs-tbody tr');
+                    if (rows.length > 0) {
+                        const runId = cleanRunId(rows[0].cells[0].textContent.trim());
+                        openDetailTab(runId, 'ILOM Fault Test');
+                    }
+                    const fetchBtn = document.getElementById('fetch-btn');
+                    const runBtn2 = document.getElementById('run-btn');
+                    const panel = document.getElementById('ereport_panel');
+                    if (panel) panel.style.display = 'none';
+                    if (runBtn2) runBtn2.style.display = 'none';
+                    if (fetchBtn) {
+                        fetchBtn.style.display = 'inline-block';
+                        fetchBtn.textContent = 'Fetch Ereports';
+                        fetchBtn.disabled = false;
+                    }
+                }, 5000);
+            })
+            .catch(err => console.error('Partial run AJAX error', err));
+    }
+});
+
+function toggleFabMenu() {
+    const menu = document.getElementById('fabMenu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+    const fabMenu = document.getElementById('fabMenu');
+    if (fabMenu.style.display === 'block' && !e.target.closest('.fab-button') && !e.target.closest('#fabMenu')) {
+        fabMenu.style.display = 'none';
+    }
+});
+</script>
+
+<style>
+.fab-button:hover { transform: scale(1.1); }
+#fabMenu a { display:block; padding:14px 24px; color:#fff; text-decoration:none; }
+#fabMenu a:hover { background:#334155; }
+.component-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+.component-table th, .component-table td { padding:18px 24px; border-bottom:1px solid #334155; color:#e2e8f0 !important; }
+.component-table tr:hover { background:#1e2937 !important; }
+.component-table th { background:#0f172a !important; color:#f1f5f9 !important; font-weight:600; }
+.component-table th:first-child, .component-table td:first-child { text-align: left !important; width: 700px !important; min-width: 700px !important; }
+.table-wrapper::-webkit-scrollbar { width:8px; height:8px; }
+.table-wrapper::-webkit-scrollbar-thumb { background:#475569; border-radius:4px; }
+.table-wrapper::-webkit-scrollbar-track { background:#1f2937; }
+.status-running { background:#eab308; color:#111827; font-weight:bold; }
+.status-completed { background:#10b981; color:#fff; font-weight:bold; }
+.status-failed { background:#ef4444; color:#fff; font-weight:bold; }
+.alert { padding:15px; margin:10px 0; border-radius:8px; background:#334155; color:#e2e8f0; }
+pre { color:#e2e8f0 !important; background:#334155 !important; white-space:pre-wrap; }
+</style>
+{% endblock %}

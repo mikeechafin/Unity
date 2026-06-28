@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}ASR Hardware Fault Test Result{% endblock %}
+{% block content %}
+<div class="container">
+    <h2>ASR Hardware Fault Test Result - {{ result.host or 'Unknown Host' }} (Run {{ test_id }})</h2>
+    
+    <p id="summary-text"><strong>Summary:</strong> {{ result.summary or 'Test completed successfully' }}</p>
+    
+    <h3>Test Steps</h3>
+    <table class="data-table" id="steps-table" style="width:100%; border-collapse:collapse;">
+        <thead>
+            <tr style="background:#343a40; color:white;">
+                <th style="padding:12px;">Step</th>
+                <th style="padding:12px; width:110px;">Status</th>
+                <th style="padding:12px;">Details</th>
+                <th style="padding:12px; width:160px;">Artifacts</th>
+            </tr>
+        </thead>
+        <tbody id="steps-body"></tbody>
+    </table>
+
+    <p style="margin-top:30px;">
+        <a href="/fault/dashboard" class="btn">← Back to Dashboard</a>
+    </p>
+</div>
+
+<style>
+.status-success { background:#28a745; color:white; padding:6px 14px; border-radius:4px; }
+.status-error   { background:#dc3545; color:white; padding:6px 14px; border-radius:4px; }
+.status-running { background:#ffc107; color:black; padding:6px 14px; border-radius:4px; animation: pulse 2s infinite; }
+.status-info    { background:#17a2b8; color:white; padding:6px 14px; border-radius:4px; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+.data-table th, .data-table td { border:1px solid #ddd; padding:12px; text-align:left; vertical-align:top; }
+.btn { padding:8px 16px; text-decoration:none; border-radius:4px; background:#007bff; color:white; }
+</style>
+
+<script>
+let pollInterval = null;
+function refreshTestStatus(testId) {
+    fetch(`/fault/asr_test_status/${testId}`)
+        .then(r => r.json())
+        .then(data => {
+            const summaryEl = document.getElementById('summary-text');
+            if (summaryEl && data.summary) summaryEl.innerHTML = `<strong>Summary:</strong> ${data.summary}`;
+            const tbody = document.getElementById('steps-body');
+            if (tbody && data.steps) {
+                tbody.innerHTML = data.steps.map(s => `
+                    <tr>
+                        <td style="font-weight:500;">${s.name}</td>
+                        <td style="text-align:center;">
+                            <span class="${s.status === 'Passed' || s.status === 'Info' ? 'status-success' : s.status === 'Failed' ? 'status-error' : 'status-running'}">${s.status}</span>
+                        </td>
+                        <td style="white-space:pre-wrap; max-width:520px;">${s.details || '—'}</td>
+                        <td style="text-align:center;">${s.artifacts || '—'}</td>
+                    </tr>
+                `).join('');
+            }
+            if (data.completed || data.run_status === 'COMPLETED') {
+                console.log("✅ Test completed — stopping live polling");
+                if (pollInterval) clearInterval(pollInterval);
+            }
+        })
+        .catch(err => console.error("Polling error:", err));
+}
+window.addEventListener('load', () => {
+    const testId = '{{ test_id }}';
+    refreshTestStatus(testId);
+    pollInterval = setInterval(() => refreshTestStatus(testId), 2500);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,309 @@
+{# Version: 2026-04-02 v1.0.9
+Changes: Left-justified hostnames in top Summary table; froze Total row at bottom with sticky tfoot; made both tables 25% taller (Summary 725px scroll, Details 1025px scroll) so they occupy most of the screen. #}
+
+{% extends "base.html" %}
+
+{% block title %}Agent Management Report{% endblock %}
+
+{% block page_title %}AGENT MANAGEMENT REPORT{% endblock %}
+
+{% block content %}
+<div class="setup-container" style="padding-bottom: 140px;">
+
+    <!-- Page Header -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="margin:0; font-size:28px; color:#fff;">Agent Management Report - 1000+ Agents Fleet</h2>
+    </div>
+
+    <!-- Agent Summary Section -->
+    <div style="margin-bottom:40px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <h3 style="margin:0; font-size:22px; color:#fff;">Agent Summary</h3>
+        </div>
+        <div style="max-height: 725px; overflow-y: auto; border: 2px solid #334155; border-radius: 12px; background:#1f2937; box-shadow:0 10px 30px rgba(0,0,0,0.4);">
+            <form method="get" action="{{ url_for('agent.report') }}" id="summary-filter-form">
+                <table class="component-table" style="width:100%; table-layout:fixed; margin-bottom:0;">
+                    <colgroup>
+                        <col style="width:28%;">
+                        <col style="width:24%;">
+                        <col style="width:24%;">
+                        <col style="width:24%;">
+                    </colgroup>
+                    <thead style="position: sticky; top: 0; z-index: 10;">
+                        <tr style="background:#0f172a; color:#64748b;">
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="summary_hostname" value="{{ filters.summary_hostname }}" 
+                                       placeholder="Filter Hostname" 
+                                       style="width:100%; max-width:220px; padding:12px 20px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:15px;"
+                                       oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">Unregistered Agents</th>
+                            <th style="padding:18px 24px; text-align:left;">Known Agents</th>
+                            <th style="padding:18px 24px; text-align:left;">Total Detected Agents</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in summary_data %}
+                        <tr style="background:#1f2937; color:#e2e8f0; border-bottom:1px solid #334155;">
+                            <td style="padding:20px 24px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left;">
+                                <a href="{{ url_for('agent.host_detail', hostname=row[0]) }}" style="color:#60a5fa; text-decoration:none;">{{ row[0] }}</a>
+                            </td>
+                            <td style="padding:20px 24px;" class="{% if row[1] >= 15 %}text-red-500 font-bold{% endif %}">{{ row[1] }}</td>
+                            <td style="padding:20px 24px;" class="{% if row[2] >= 15 %}text-red-500 font-bold{% endif %}">{{ row[2] }}</td>
+                            <td style="padding:20px 24px;" class="{% if row[3] >= 15 %}text-red-500 font-bold{% endif %}">{{ row[3] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot style="position: sticky; bottom: 0; z-index: 9;">
+                        {% set total_known = total_detected - total_unregistered %}
+                        <tr style="background:#0f172a; color:#fff; font-weight:600;">
+                            <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left;"><strong>Total</strong></td>
+                            <td style="padding:20px 24px;" class="{% if total_unregistered >= 15 %}text-red-500{% endif %}"><strong>{{ total_unregistered }}</strong></td>
+                            <td style="padding:20px 24px;" class="{% if total_known >= 15 %}text-red-500{% endif %}"><strong>{{ total_known }}</strong></td>
+                            <td style="padding:20px 24px;" class="{% if total_detected >= 15 %}text-red-500{% endif %}"><strong>{{ total_detected }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </form>
+        </div>
+        <small style="color:#64748b; margin-top:8px; display:block;">Scroll vertically • {{ summary_data|length }} hosts shown</small>
+    </div>
+
+    <!-- Agent Details Section -->
+    <div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <h3 style="margin:0; font-size:22px; color:#fff;">Agent Details</h3>
+        </div>
+
+        <!-- Bulk Action Buttons -->
+        <form id="agentActionsForm" method="POST" action="{{ url_for('agent.handle_agent_action') }}" style="margin-bottom:20px; display:flex; gap:12px; flex-wrap:wrap;">
+            <input type="hidden" name="action" id="actionField">
+            <button type="submit" onclick="setAction('delete')" 
+                    style="background:#ef4444; color:#fff; padding:14px 28px; border-radius:9999px; border:none; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                🗑️ Delete Selected
+            </button>
+            <button type="submit" onclick="setAction('shutdown')" 
+                    style="background:#f59e0b; color:#fff; padding:14px 28px; border-radius:9999px; border:none; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                ⏹️ Shutdown Selected
+            </button>
+            <button type="submit" onclick="setAction('startup')" 
+                    style="background:#10b981; color:#fff; padding:14px 28px; border-radius:9999px; border:none; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                ▶️ Startup Selected
+            </button>
+            <button type="submit" onclick="setAction('refresh')" 
+                    style="background:#64748b; color:#fff; padding:14px 28px; border-radius:9999px; border:none; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                🔄 Refresh Status
+            </button>
+        </form>
+
+        <!-- Scrollable Details Table -->
+        <form method="get" action="{{ url_for('agent.report') }}" id="details-filter-form">
+            <div style="max-height: 1025px; overflow-y: auto; overflow-x: auto; border: 2px solid #334155; border-radius: 12px; background:#1f2937; box-shadow:0 10px 30px rgba(0,0,0,0.4);">
+                <table class="component-table" style="width:100%; table-layout:fixed; min-width:2600px; margin-bottom:0;">
+                    <colgroup>
+                        <col style="width:40px;">
+                        <col style="width:140px;">
+                        <col style="width:70px;">
+                        <col style="width:70px;">
+                        <col style="width:190px;">
+                        <col style="width:200px;">
+                        <col style="width:90px;">
+                        <col style="width:160px;">
+                        <col style="width:100px;">
+                        <col style="width:120px;">
+                        <col style="width:90px;">
+                        <col style="width:90px;">
+                        <col style="width:90px;">
+                        <col style="width:90px;">
+                        <col style="width:120px;">
+                        <col style="width:120px;">
+                        <col style="width:140px;">
+                        <col style="width:140px;">
+                        <col style="width:140px;">
+                        <col style="width:90px;">
+                    </colgroup>
+                    <thead style="position: sticky; top: 0; z-index: 10;">
+                        <tr style="background:#0f172a; color:#fff;">
+                            <th style="padding:18px 12px; text-align:center;">
+                                <input type="checkbox" id="select-all" form="agentActionsForm" onclick="toggleCheckboxes(this)">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="details_hostname" value="{{ filters.details_hostname }}" placeholder="Hostname" 
+                                       style="width:100%; max-width:130px; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="pid" value="{{ filters.pid }}" placeholder="PID" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="port" value="{{ filters.port }}" placeholder="Port" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="agent_home" value="{{ filters.agent_home }}" placeholder="Agent Home" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="oms_url" value="{{ filters.oms_url }}" placeholder="OMS URL" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="snmp_count" value="{{ filters.snmp_count }}" placeholder="SNMP" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="configured_iloms" value="{{ filters.configured_iloms }}" placeholder="ILOMs" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="agent_status" value="{{ filters.agent_status }}" placeholder="Status" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="install_date" value="{{ filters.install_date }}" placeholder="Install Date" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="total_space" value="{{ filters.total_space }}" placeholder="Space MB" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="cpu_usage" value="{{ filters.cpu_usage }}" placeholder="CPU %" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="memory_usage" value="{{ filters.memory_usage }}" placeholder="Mem MB" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="target_count" value="{{ filters.target_count }}" placeholder="Targets" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="agent_version" value="{{ filters.agent_version }}" placeholder="Agent Ver" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="oms_version" value="{{ filters.oms_version }}" placeholder="OMS Ver" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="heartbeat_status" value="{{ filters.heartbeat_status }}" placeholder="Heartbeat" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="running_duration" value="{{ filters.running_duration }}" placeholder="Run Days" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="last_successful_upload" value="{{ filters.last_successful_upload }}" placeholder="Last Upload" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                            <th style="padding:18px 24px; text-align:left;">
+                                <input type="text" name="total_errors" value="{{ filters.get('total_errors', '') }}" placeholder="Errors" 
+                                       style="width:100%; padding:10px 14px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:14px;" oninput="this.form.submit()">
+                            </th>
+                        </tr>
+                        <tr style="background:#0f172a; color:#64748b; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+                            <th style="padding:12px 12px;"></th>
+                            <th style="padding:12px 24px;">Hostname</th>
+                            <th style="padding:12px 24px;">PID</th>
+                            <th style="padding:12px 24px;">Port</th>
+                            <th style="padding:12px 24px;">Agent Home</th>
+                            <th style="padding:12px 24px;">OMS URL</th>
+                            <th style="padding:12px 24px;">SNMP Count</th>
+                            <th style="padding:12px 24px;">ILOMs Configured</th>
+                            <th style="padding:12px 24px;">Agent Status</th>
+                            <th style="padding:12px 24px;">Install Date</th>
+                            <th style="padding:12px 24px;">Space (MB)</th>
+                            <th style="padding:12px 24px;">CPU %</th>
+                            <th style="padding:12px 24px;">Mem (MB)</th>
+                            <th style="padding:12px 24px;">Targets</th>
+                            <th style="padding:12px 24px;">Agent Ver</th>
+                            <th style="padding:12px 24px;">OMS Ver</th>
+                            <th style="padding:12px 24px;">Heartbeat</th>
+                            <th style="padding:12px 24px;">Run Days</th>
+                            <th style="padding:12px 24px;">Last Upload</th>
+                            <th style="padding:12px 24px;">Errors</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if error %}
+                        <tr><td colspan="20" style="padding:40px; text-align:center; color:#ef4444;">Error: {{ error }}</td></tr>
+                        {% elif details_data %}
+                            {% for row in details_data %}
+                            <tr style="background:#1f2937; color:#e2e8f0; border-bottom:1px solid #334155;">
+                                <td style="padding:12px 12px; text-align:center;">
+                                    <input type="checkbox" name="selected_agents" form="agentActionsForm" value="{{ row[19] }}">
+                                </td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[0] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[1] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[2] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    <a href="{{ url_for('agent.agent_home_detail', hostname=row[0], pid=row[1], agent_home=row[3]) }}" style="color:#60a5fa;">{{ row[3] }}</a>
+                                </td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[4] }}</td>
+                                <td style="padding:20px 24px;" class="{% if row[5] >= 15 %}text-red-500 font-bold{% endif %}">{{ row[5] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                    {% if row[6] == ['None'] %}None{% else %}
+                                        {% for ilom in row[6] %}
+                                            <a href="{{ url_for('ilom.host_detail', hostname=ilom) }}" style="color:#60a5fa;">{{ ilom }}</a>{% if not loop.last %}, {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                </td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[7] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[8] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[9] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[10] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[11] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[12] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[13] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[14] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[15] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[16] }}</td>
+                                <td style="padding:20px 24px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ row[17] }}</td>
+                                <td style="padding:20px 24px;" class="{% if row[18] | int >= 5 %}text-red-500 font-bold{% endif %}">{{ row[18] | int }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                        <tr><td colspan="20" style="padding:60px; text-align:center; color:#64748b;">No agent details found.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+        <small style="color:#64748b; margin-top:8px; display:block;">Scroll horizontally / vertically • {{ details_data|length if details_data else 0 }} agents shown</small>
+    </div>
+
+</div>
+
+<!-- Floating Green Navigation Ball -->
+<button onclick="toggleFabMenu()" class="fab-button"
+        style="position:fixed; bottom:120px; right:40px; width:64px; height:64px; background:#10b981; border:none; border-radius:9999px; color:#fff; font-size:28px; box-shadow:0 10px 30px rgba(16,185,129,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; cursor:pointer;">
+    +
+</button>
+
+<!-- FAB Menu -->
+<div id="fabMenu" style="display:none; position:fixed; bottom:200px; right:40px; background:#1f2937; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; min-width:220px; z-index:1001;">
+    <a onclick="window.location.href='{{ url_for('agent.manage') }}'; toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">Manage Ignore Strings</a>
+    <a onclick="window.location.href='{{ url_for('agent.error_summary') }}'; toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">Error Summary</a>
+    <a onclick="window.location.reload(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">⟳ Refresh Report</a>
+    <a onclick="window.location.href='{{ url_for('agent.parser_status') }}'; toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">Run Parser Now</a>
+</div>
+
+<script>
+function toggleCheckboxes(source) {
+    const checkboxes = document.getElementsByName('selected_agents');
+    for (let i = 0; i < checkboxes.length; i++) {
+        checkboxes[i].checked = source.checked;
+    }
+}
+function setAction(action) {
+    document.getElementById('actionField').value = action;
+}
+function toggleFabMenu() {
+    const menu = document.getElementById('fabMenu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+</script>
+{% endblock %}

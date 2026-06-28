@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block page_title %}Edit Script Description{% endblock %}
+
+{% block content %}
+<div class="setup-container">
+    <h2>Edit Description for {{ script_name }} ({{ component_type }})</h2>
+    
+    <form method="POST" action="{{ url_for('setup.edit_description') }}">
+        <input type="hidden" name="script_name" value="{{ script_name }}">
+        <input type="hidden" name="component_type" value="{{ component_type }}">
+        <input type="hidden" name="filter_text" value="{{ filter_text }}">
+        <input type="hidden" name="selected_type" value="{{ selected_type }}">
+        
+        <label for="description">Description:</label><br>
+        <textarea id="description" name="description" rows="5" cols="80">{{ description }}</textarea><br>
+        
+        <div class="button-container">
+            <button type="submit" class="small-action-button">Save Description</button>
+            <a href="{{ url_for('setup.setup_environment', component_type=selected_type, filter=filter_text) }}" class="small-action-button">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.setup-container {
+    max-width: 1200px;
+    margin-left: 20px; /* Left justify with padding */
+    padding: 20px;
+}
+textarea {
+    padding: 8px;
+    margin: 10px 0;
+    width: 100%;
+    max-width: 600px;
+}
+.button-container {
+    display: flex;
+    justify-content: flex-start; /* Left-justify buttons */
+    align-items: center; /* Center vertically */
+    gap: 10px;
+    margin-top: 10px;
+}
+</style>
+{% endblock %}

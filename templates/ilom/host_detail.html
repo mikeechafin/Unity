@@ -1,0 +1,158 @@
+<!-- Version: 2026-04-04 v1.00 -->
+<!-- Changes: Migrated to new dark unified format matching switch_detail.html (setup-container, dark tables, sticky headers, green FAB with Delete Unprotected Alerts + Refresh + Back). Moved delete button to FAB, removed flash banner and top back button. -->
+{% extends "base.html" %}
+{% block title %}ILOM Host Detail - {{ host_data[0] }}{% endblock %}
+{% block page_title %}ILOM HOST DETAIL - {{ host_data[0] }}{% endblock %}
+
+{% block content %}
+<div class="setup-container" style="padding-bottom: 140px;">
+
+    <!-- Hidden form for Delete Unprotected Alerts (moved to FAB) -->
+    <form id="deleteUnprotectedForm" method="POST" style="display:none;">
+        <input type="hidden" name="delete_all_unprotected_alerts" value="1">
+    </form>
+
+    <!-- SNMP Alerts Table -->
+    <div style="margin-bottom:32px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <h2 style="margin:0; font-size:22px; color:#fff;">SNMP Alerts</h2>
+            {% if slot_status.alerts_full %}
+            <div style="background:#ef4444; color:#fff; padding:6px 14px; border-radius:9999px; font-size:13px; font-weight:600;">All alert slots full – delete one to add another</div>
+            {% endif %}
+        </div>
+        {% if alerts %}
+        <div class="table-wrapper" style="max-height:520px; overflow-y:auto; border:1px solid #334155; border-radius:12px; background:#111827; box-shadow:0 4px 15px rgba(0,0,0,0.3);">
+            <table class="component-table" style="width:100%; table-layout:fixed; background:#111827; border-collapse:collapse;">
+                <thead style="position:sticky; top:0; z-index:10; background:#0f172a;">
+                    <tr style="background:#0f172a; color:#f1f5f9;">
+                        <th style="padding:18px 24px; text-align:left;">Alert ID</th>
+                        <th style="padding:18px 24px; text-align:left;">Version</th>
+                        <th style="padding:18px 24px; text-align:left;">Destination</th>
+                        <th style="padding:18px 24px; text-align:left;">Port</th>
+                        <th style="padding:18px 24px; text-align:left;">Community String</th>
+                        <th style="padding:18px 24px; text-align:left;">Username</th>
+                        <th style="padding:18px 24px; text-align:left;">Status</th>
+                        <th style="padding:18px 24px; text-align:center; width:160px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in alerts %}
+                    <tr style="background:#1f2937; color:#e2e8f0; border-bottom:1px solid #334155;">
+                        <td style="padding:20px 24px; font-weight:600;">{{ alert[0] }}</td>
+                        <td style="padding:20px 24px;">{{ alert[1] }}</td>
+                        <td style="padding:20px 24px;">{{ alert[2] }}</td>
+                        <td style="padding:20px 24px;">{{ alert[6] }}</td>
+                        <td style="padding:20px 24px;">{{ alert[3] if alert[3] else 'N/A' }}</td>
+                        <td style="padding:20px 24px;">{{ alert[4] if alert[4] else 'N/A' }}</td>
+                        <td style="padding:20px 24px;">{{ alert[5] }}</td>
+                        <td style="padding:20px 24px; text-align:center;">
+                            {% if alert[0] != 1 %}
+                            <form method="POST" style="display:inline;">
+                                <input type="hidden" name="delete_alert" value="{{ alert[0] }}">
+                                <button type="submit" style="background:#ef4444; color:#fff; width:36px; height:36px; border-radius:9999px; border:none; cursor:pointer; margin-right:6px;">🗑️</button>
+                            </form>
+                            <a href="{{ url_for('ilom.edit_alert', hostname=host_data[0], alert_id=alert[0]) }}" style="background:#334155; color:#fff; width:36px; height:36px; border-radius:9999px; border:none; display:inline-flex; align-items:center; justify-content:center; text-decoration:none;">✏️</a>
+                            {% else %}
+                            <span style="color:#64748b; font-size:13px;">Protected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="color:#64748b; text-align:center; padding:40px; background:#1f2937; border-radius:12px;">No SNMP alerts found.</p>
+        {% endif %}
+    </div>
+
+    <!-- SNMP Users Table -->
+    <div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+            <h2 style="margin:0; font-size:22px; color:#fff;">SNMP Users</h2>
+            {% if slot_status.users_full %}
+            <div style="background:#ef4444; color:#fff; padding:6px 14px; border-radius:9999px; font-size:13px; font-weight:600;">All user slots full</div>
+            {% endif %}
+        </div>
+        {% if user_data.users %}
+        <div class="table-wrapper" style="max-height:400px; overflow-y:auto; border:1px solid #334155; border-radius:12px; background:#111827; box-shadow:0 4px 15px rgba(0,0,0,0.3);">
+            <table class="component-table" style="width:100%; table-layout:fixed; background:#111827; border-collapse:collapse;">
+                <thead style="position:sticky; top:0; z-index:10; background:#0f172a;">
+                    <tr style="background:#0f172a; color:#f1f5f9;">
+                        <th style="padding:18px 24px; text-align:left;">Username</th>
+                        <th style="padding:18px 24px; text-align:left;">Authentication Protocol</th>
+                        <th style="padding:18px 24px; text-align:left;">Access Level</th>
+                        <th style="padding:18px 24px; text-align:center; width:120px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in user_data.users %}
+                    <tr style="background:#1f2937; color:#e2e8f0; border-bottom:1px solid #334155;">
+                        <td style="padding:20px 24px; font-weight:500;">{{ user[0] }}</td>
+                        <td style="padding:20px 24px;">{{ user[1] }}</td>
+                        <td style="padding:20px 24px;">{{ user[2] }}</td>
+                        <td style="padding:20px 24px; text-align:center;">
+                            {% if user[0] not in ['public', 'private'] and username == 'maamdd' %}
+                            <form method="POST" style="display:inline;">
+                                <input type="hidden" name="delete_user" value="{{ user[0] }}">
+                                <button type="submit" style="background:#ef4444; color:#fff; width:36px; height:36px; border-radius:9999px; border:none; cursor:pointer;">🗑️</button>
+                            </form>
+                            {% else %}
+                            <span style="color:#64748b; font-size:13px;">Protected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="color:#64748b; text-align:center; padding:40px; background:#1f2937; border-radius:12px;">No SNMP users found.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Floating Green Ball FAB -->
+<button onclick="toggleFabMenu()" class="fab-button"
+        style="position:fixed; bottom:120px; right:40px; width:64px; height:64px; background:#10b981; border:none; border-radius:9999px; color:#fff; font-size:28px; box-shadow:0 10px 30px rgba(16,185,129,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; cursor:pointer;">
+    +
+</button>
+
+<!-- FAB Menu -->
+<div id="fabMenu" style="display:none; position:fixed; bottom:200px; right:40px; background:#1f2937; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; min-width:200px; z-index:1001;">
+    <a onclick="location.reload(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">⟳ Refresh Now</a>
+    <a onclick="deleteUnprotectedAlerts(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">🗑️ Delete Unprotected Alerts</a>
+    <a href="{{ url_for('ilom.ilom_index') }}" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">← Back to Summary</a>
+</div>
+
+<script>
+function toggleFabMenu() {
+    const menu = document.getElementById('fabMenu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+    const fabMenu = document.getElementById('fabMenu');
+    if (fabMenu.style.display === 'block' && !e.target.closest('.fab-button') && !e.target.closest('#fabMenu')) {
+        fabMenu.style.display = 'none';
+    }
+});
+
+function deleteUnprotectedAlerts() {
+    if (confirm('Are you sure you want to delete all unprotected alerts?')) {
+        document.getElementById('deleteUnprotectedForm').submit();
+    }
+}
+</script>
+
+<style>
+.fab-button:hover { transform: scale(1.1); }
+#fabMenu a { display:block; padding:14px 24px; color:#fff; text-decoration:none; }
+#fabMenu a:hover { background:#334155; }
+.component-table th, .component-table td { padding:18px 24px; border-bottom:1px solid #334155; }
+.component-table tr:hover { background:#1e2937 !important; }
+.component-table th { background:#0f172a !important; color:#f1f5f9 !important; font-weight:600; }
+.table-wrapper::-webkit-scrollbar { width:8px; height:8px; }
+.table-wrapper::-webkit-scrollbar-thumb { background:#475569; border-radius:4px; }
+.table-wrapper::-webkit-scrollbar-track { background:#1f2937; }
+</style>
+{% endblock %}

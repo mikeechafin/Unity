@@ -1,0 +1,98 @@
+<!-- Version: 2026-04-02 v1.01 -->
+<!-- Changes: Left-justified the Hostname column (text-align:left !important on th and td) + completely removed the flash messages block to eliminate the "Login successful! Use /api/token for passwordless access." top banner (matching base.html intent). -->
+{% extends "base.html" %}
+{% block title %}ASR Management{% endblock %}
+{% block page_title %}ASR MANAGEMENT{% endblock %}
+{% block content %}
+<div class="setup-container" style="padding-bottom: 140px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="margin:0; font-size:28px; color:#fff; display:flex; align-items:center; gap:12px;">
+            📡 ASR Systems
+        </h2>
+        <input type="text" id="asrSearch" placeholder="Filter hostname..." 
+               onkeyup="filterTable()" 
+               style="width:340px; padding:14px 20px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; outline:none;">
+    </div>
+
+    {% if error_message %}
+        <p style="color:#ef4444; padding:16px; background:#1f2937; border-radius:12px;">{{ error_message }}</p>
+    {% elif asrm_data %}
+    <table class="component-table" style="width:100%; table-layout:fixed; background:#111827; border-collapse:collapse;">
+        <colgroup>
+            <col style="width:240px;">
+            <col style="width:120px;">
+            <col style="width:170px;">
+            <col style="width:160px;">
+            <col style="width:110px;">
+            <col style="width:160px;">
+            <col style="width:130px;">
+        </colgroup>
+        <thead>
+            <tr style="background:#0f172a;">
+                <th style="padding:18px 24px; text-align:left !important;">Hostname</th>
+                <th style="padding:18px 24px; text-align:center;">Managed Assets</th>
+                <th style="padding:18px 24px; text-align:left;">MOS Backend</th>
+                <th style="padding:18px 24px; text-align:left;">ASR User</th>
+                <th style="padding:18px 24px; text-align:left;">Version</th>
+                <th style="padding:18px 24px; text-align:left;">Registration Status</th>
+                <th style="padding:18px 24px; text-align:left;">Status</th>
+            </tr>
+        </thead>
+        <tbody id="asrBody">
+            {% for row in asrm_data %}
+            <tr style="background:#1f2937; color:#e2e8f0; border-bottom:1px solid #334155;">
+                <td style="padding:20px 24px; font-weight:500; text-align:left !important;">
+                    <a href="{{ url_for('asrm.asrm_details', hostname=row.hostname) }}" style="color:#60a5fa;">{{ row.hostname }}</a>
+                </td>
+                <td style="padding:20px 24px; text-align:center; font-weight:600;">{{ row.asset_count }}</td>
+                <td style="padding:20px 24px;">{{ row.mos_backend or 'N/A' }}</td>
+                <td style="padding:20px 24px;">{{ row.asr_user or 'N/A' }}</td>
+                <td style="padding:20px 24px;">{{ row.version or 'N/A' }}</td>
+                <td style="padding:20px 24px;">{{ row.reg_status or 'N/A' }}</td>
+                <td style="padding:20px 24px;">{{ row.status or 'N/A' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" style="padding:40px; text-align:center; color:#64748b;">No ASR data found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#94a3b8;">No ASR data found.</p>
+    {% endif %}
+</div>
+
+<!-- Floating Green Ball FAB -->
+<button onclick="toggleFabMenu()" class="fab-button"
+        style="position:fixed; bottom:120px; right:40px; width:64px; height:64px; background:#10b981; border:none; border-radius:9999px; color:#fff; font-size:28px; box-shadow:0 10px 30px rgba(16,185,129,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; cursor:pointer;">
+    +
+</button>
+
+<!-- FAB Menu -->
+<div id="fabMenu" style="display:none; position:fixed; bottom:200px; right:40px; background:#1f2937; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; min-width:200px; z-index:1001;">
+    <a onclick="location.reload(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">⟳ Refresh Now</a>
+    <a onclick="exportToCSV(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">📥 Export CSV</a>
+</div>
+
+<script>
+function toggleFabMenu() {
+    const menu = document.getElementById('fabMenu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+function filterTable() {
+    const term = document.getElementById('asrSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('#asrBody tr');
+    rows.forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
+}
+function exportToCSV() {
+    window.location = '{{ url_for("asrm.asrm_index") }}?export=csv';
+}
+</script>
+
+<style>
+.fab-button:hover { transform: scale(1.1); }
+#fabMenu a:hover { background:#334155; }
+.component-table tr:hover { background:#1e2937 !important; }
+</style>
+{% endblock %}
