@@ -31,9 +31,11 @@ logger.addHandler(handler)
 
 SSH_PRIVATE_KEY_PATH = '/home/maatest/.ssh/id_rsa'
 DEFAULT_ILOM_USERNAME = 'root'
-DEFAULT_ILOM_PASSWORD = 'Ed1s_P0#&G'
-DSN = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=scaqaa04cel12vm02.us.oracle.com)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=maapdb_devel.us.oracle.com)))"
-DB_POOL = oracledb.SessionPool(user='maamd', password='welcome2', dsn=DSN, min=1, max=10, increment=1)
+DSN = os.environ.get('DB_DSN') or "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=scaqaa04cel12vm02.us.oracle.com)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=maapdb_devel.us.oracle.com)))"
+DB_PASSWORD = os.environ.get('DB_PASSWORD')
+if not DB_PASSWORD:
+    raise RuntimeError("DB_PASSWORD environment variable is required")
+DB_POOL = oracledb.SessionPool(user='maamd', password=DB_PASSWORD, dsn=DSN, min=1, max=10, increment=1)
 MAX_WORKERS = 10
 BATCH_SIZE = 100
 LOCK = Lock()
@@ -146,7 +148,8 @@ def get_preferred_ilom_hostname(system_name, conn):
     finally:
         cursor.close()
 
-def process_ilom(host, conn):
+def process_ilom(host):
+    conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute("""
@@ -160,7 +163,8 @@ def process_ilom(host, conn):
         )
         creds = [(row[0], decrypt_data(row[1].read()) if row[1] else None) for row in cursor.fetchall()]
         if not creds:
-            creds = [(DEFAULT_ILOM_USERNAME, DEFAULT_ILOM_PASSWORD)]
+            logger.warning(f"No ILOM credentials in ACCESS_CREDENTIALS for {host}; skipping")
+            return [], []
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         connected = False
@@ -210,6 +214,7 @@ def process_ilom(host, conn):
         return alerts_data, users_data
     finally:
         cursor.close()
+        release_db_connection(conn)
 
 def batch_insert(cursor, conn, table_name, columns, data, pk_columns):
     if not data:
@@ -247,8 +252,13 @@ def collect_data():
                 preferred_hostname, ilom_ip = get_preferred_ilom_hostname(system_name, conn)
                 if preferred_hostname:
                     system_to_ilom[system_name] = (preferred_hostname, ilom_ip)
-        hosts_to_process = [hostname for hostname, _ in system_to_ilom.values()]
-        logger.info(f"Processing {len(hosts_to_process)} unique ILOM hosts")
+        hosts_to_process = []
+        for hostname, _ in system_to_ilom.values():
+            if is_host_reachable(hostname):
+                hosts_to_process.append(hostname)
+            else:
+                logger.warning(f"Skipping unreachable ILOM host {hostname}")
+        logger.info(f"Processing {len(hosts_to_process)} reachable ILOM hosts (skipped {len(system_to_ilom) - len(hosts_to_process)} unreachable)")
         for system_name, (preferred_hostname, ilom_ip) in system_to_ilom.items():
             ilom_variant = f"{system_name.replace('.us.oracle.com', '')}-ilom.us.oracle.com"
             c_variant = f"{system_name.replace('.us.oracle.com', '')}-c.us.oracle.com"
@@ -284,7 +294,7 @@ def collect_data():
         processed_count = 0
         skipped_count = 0
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            future_to_host = {executor.submit(process_ilom, host, conn): host for host in hosts_to_process}
+            future_to_host = {executor.submit(process_ilom, host): host for host in hosts_to_process}
             for future in as_completed(future_to_host):
                 host = future_to_host[future]
                 try:

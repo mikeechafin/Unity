@@ -3,6 +3,7 @@ import subprocess
 import csv
 import json
 import os
+import hashlib
 import logging
 import paramiko
 import re

@@ -267,7 +267,15 @@ def acquire_instance_lock():
     if INSTANCE_LOCKED:
         return None
     try:
-        time.sleep(10)
+        if os.path.exists(PID_FILE):
+            try:
+                with open(PID_FILE) as f:
+                    old_pid = int(f.read().strip())
+                if old_pid != current_pid and psutil.pid_exists(old_pid):
+                    logger.error("Another MAA Unified instance is running (PID %s). Exiting.", old_pid)
+                    sys.exit(1)
+            except (ValueError, OSError):
+                pass
         lock_fd = open(LOCK_FILE, 'w')
         fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         with open(LOCK_FILE, 'w') as f:

@@ -499,7 +499,16 @@ def main():
 
     pubkey = load_public_key()
     pkey = load_private_key()
-    hosts = get_all_hosts()
+    all_hosts = get_all_hosts()
+    hosts = []
+    skipped_unreachable = 0
+    for host in all_hosts:
+        try:
+            socket.create_connection((host, 22), timeout=8)
+            hosts.append(host)
+        except OSError:
+            skipped_unreachable += 1
+    logger.info(f"Host pre-filter: {len(hosts)} reachable, {skipped_unreachable} skipped (port 22 closed)")
 
     success_count = 0
     failed_hosts = []

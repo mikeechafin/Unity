@@ -63,7 +63,7 @@ def get_tables_in_schema(schema_name):
         cursor.execute("""
             SELECT TABLE_NAME
             FROM DBA_TABLES
-            WHERE OWNER = "MAAMD"
+            WHERE OWNER = :1
         """, [schema_name])
         tables = [row[0] for row in cursor.fetchall()]
         logger.info("Found %d tables in schema %s", len(tables), schema_name)
