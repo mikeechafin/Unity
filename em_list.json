@@ -1,0 +1,12 @@
+{
+    "databases": [
+        {
+            "host": "scaqaa04cel12vm04.us.oracle.com",
+            "port": "1521",
+	    "serviceName": "emrepovm04.us.oracle.com",
+	    "dbUser": "sysman",
+	    "dbPassword": "welcome1"
+
+        }
+    ]
+}
