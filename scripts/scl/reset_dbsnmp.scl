@@ -8,7 +8,7 @@ for pid in $(ps -ef | grep -v grep | grep [o]ra_pmon_ | awk '{print $2}'); do
   cmd=$(ps -o command -p $pid | tail -1)
   if [[ $cmd == *ora_pmon_* && ! $cmd == *+ASM* ]]; then
     sid=${cmd##*ora_pmon_}
-    home=$(tr '\0' '\n' < /proc/$pid/environ | grep ^ORACLE_HOME= | cut -d= -f2)
+    home=$(tr '\u0000' '\n' < /proc/$pid/environ | grep ^ORACLE_HOME= | cut -d= -f2)
     if [ -n "$home" ] && [ -d "$home" ] && [ -x "$home/bin/sqlplus" ]; then
       echo "Updating dbsnmp password for database $sid, ORACLE_HOME=$home"
       su - oracle -c "export ORACLE_SID=$sid; export ORACLE_HOME=$home; export PATH=$home/bin:$PATH; sqlplus / as sysdba <<EOF
