@@ -16,7 +16,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from maa_db_pool import get_db_pool_connection, release_db_pool_connection
 from maa_libraries import get_credential
-LOG_DIR = '/home/maatest/mchafin/MAA_APPS_NEW/output'
+import config
+LOG_DIR = config.OUTPUT_DIR
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_PATH = os.path.join(LOG_DIR, 'collect_network_topology.log')
 BACKUP_PATH = LOG_PATH + '.bak'

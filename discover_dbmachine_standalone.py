@@ -285,7 +285,8 @@ def main(seed_host=None):
         print(" (flags can appear before or after the hostname)")
         sys.exit(1)
     
-    LOG_DIR = '/home/maatest/mchafin/MAA_APPS_NEW/output'
+    import config
+    LOG_DIR = config.OUTPUT_DIR
     os.makedirs(LOG_DIR, exist_ok=True)
     safe_host = re.sub(r'[^a-zA-Z0-9_.-]', '_', seed_host)
     LOG_PATH = os.path.join(LOG_DIR, f'discover_dbmachine_cli_{safe_host}.log')

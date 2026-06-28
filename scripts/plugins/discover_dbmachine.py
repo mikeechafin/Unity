@@ -217,7 +217,8 @@ def main(seed_host, pool=None, task_id=None, sid=None, socketio=None, **kwargs):
     if seed_host is None:
         emit_message(task_id, sid, socketio, "Usage: ./discover_dbmachine.py <seed_host> [--debug] [--json]", "error")
         sys.exit(1)
-    LOG_DIR = '/home/maatest/mchafin/MAA_APPS_NEW/output'
+    import config
+    LOG_DIR = config.OUTPUT_DIR
     os.makedirs(LOG_DIR, exist_ok=True)
     safe_host = re.sub(r'[^a-zA-Z0-9_.-]', '_', seed_host)
     LOG_PATH = os.path.join(LOG_DIR, f'discover_dbmachine_{safe_host}.log')

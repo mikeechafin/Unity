@@ -19,7 +19,9 @@ import paramiko
 import io
 import tempfile
 
-BASE_DIR = "/home/maatest/mchafin/MAA_APPS_NEW/output/RTI"
+import config
+
+BASE_DIR = config.RTI_BASE_DIR
 RTI_PERSIST_TO_DB = True
 RTI_CONFIG_FILE = os.path.join(BASE_DIR, "rti_config.json")
 RTI_CAPTURE_DIR = os.path.join(BASE_DIR, "rti_captures")

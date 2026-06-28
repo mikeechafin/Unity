@@ -663,7 +663,8 @@ def run_asr_hardware_fault_test_sync(test_id, target_type, host, auto_clear, poo
 
     def check_snmp_trap_sent(host, disk, device_type='Disk', simulation_start_utc=None):
         base_host = host.replace('-ilom.us.oracle.com', '.us.oracle.com').replace('-ilom', '')
-        output_dir = os.getenv('MAA_OUTPUT_DIR', '/home/maatest/mchafin/MAA_APPS_NEW/output')
+        import config
+        output_dir = config.OUTPUT_DIR
         os.makedirs(output_dir, exist_ok=True)
         debug_log_path = f"{output_dir}/asr_step5_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         try:

@@ -35,7 +35,9 @@ DB_BATCH_SIZE = 20000
 TEMP_DIR = '/tmp/temp_logs'
 LOG_FILE_PATTERN = r'^(gcagent\.log|gcagent_sdk\.trc|gcagent_errors\.log|emagent\.log|emctl\.log|emdctlj\.log|xa_analytics_.*\.log|\w+\.trc|\w+\.out|OraInstallNG.*\.log)(\.\d+)?$'
 
-log_dir = "/home/maatest/mchafin/MAA_APPS_NEW/output"
+import config
+
+log_dir = config.OUTPUT_DIR
 os.makedirs(log_dir, exist_ok=True)
 logging.basicConfig(
     level=logging.DEBUG,

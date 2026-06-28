@@ -17,7 +17,9 @@ ROOT_PASSWORD="welcome2"
 DB_USER = "maamd"
 DB_PASSWORD = "welcome2"
 DB_DSN = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=scaqaa04cel12vm02.us.oracle.com)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=maapdb_devel.us.oracle.com)))"
-OUTPUT_FILE = "/home/maatest/mchafin/MAA_APPS_NEW/output/collect_asrm_data.log"
+import config
+
+OUTPUT_FILE = os.path.join(config.OUTPUT_DIR, 'collect_asrm_data.log')
 MAX_WORKERS = 5
 SSH_TIMEOUT = 15
 SSH_RETRIES = 2
@@ -27,7 +29,7 @@ logger = logging.getLogger('collect_asrm_data')
 logger.setLevel(logging.DEBUG)
 log_queue = queue.Queue(-1)
 queue_handler = QueueHandler(log_queue)
-fh = logging.FileHandler('/home/maatest/mchafin/MAA_APPS_NEW/output/collect_asrm_data.log')
+fh = logging.FileHandler(OUTPUT_FILE)
 fh.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
 fh.setFormatter(formatter)

@@ -29,6 +29,7 @@ def get_component_health():
         {"name": "Switches", "icon": "🔀", "status": "Healthy", "color": "#10b981", "issues": 0, "last_check": "12m ago", "link": "/switches/"},
         {"name": "Environment Setup", "icon": "⚙️", "status": "Healthy", "color": "#10b981", "issues": 0, "last_check": "15m ago", "link": "/setup/setup_environment"},
         {"name": "Jobs", "icon": "📋", "status": "Healthy", "color": "#10b981", "issues": 0, "last_check": "2m ago", "link": "/jobs/scheduled_jobs"},
+        {"name": "Fleet Health", "icon": "📈", "status": "Monitor", "color": "#6366f1", "issues": 0, "last_check": "live", "link": "/fleet-health/"},
     ]
 
 def get_recent_issues():

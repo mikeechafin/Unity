@@ -13,7 +13,9 @@ import subprocess
 import time
 
 # Configure logging (aligned with maa_unified_app.py)
-log_directory = '/home/maatest/mchafin/MAA_APPS_NEW/output'
+import config
+
+log_directory = config.OUTPUT_DIR
 log_file = f'{log_directory}/email_agent_status.log'
 if not os.path.exists(log_directory):
     os.makedirs(log_directory)

@@ -176,7 +176,8 @@ def error_detail(fingerprint):
 @login_required
 def run_parser_now():
     try:
-        subprocess.Popen(["python3", "/home/maatest/mchafin/MAA_APPS_NEW/parse_agent_logs.py", "--debug"])
+        import config
+        subprocess.Popen(["python3", os.path.join(config.APP_ROOT, "parse_agent_logs.py"), "--debug"])
         flash("✅ Parser started in background. Check parse_agent_logs.log for progress.", "success")
     except Exception as e:
         flash(f"Failed to start parser: {e}", "error")

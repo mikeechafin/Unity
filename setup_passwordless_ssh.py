@@ -18,18 +18,20 @@ import atexit
 import subprocess
 import socket
 
+import config
+
 # ========================= CONFIG =========================
-LOG_DIR = "./output"
-LOG_FILE = os.path.join(LOG_DIR, "setup_passwordless_ssh.log")
-SSH_KEY_PATH = "/home/maatest/.ssh/id_ed25519_maa"
-SSH_KEY_PUB_PATH = SSH_KEY_PATH + ".pub"
-SSH_TIMEOUT = 15          # Reduced from 30 for speed
+LOG_DIR = config.OUTPUT_DIR
+LOG_FILE = config.SSH_SETUP_LOG
+SSH_KEY_PATH = config.SSH_KEY_PATH
+SSH_KEY_PUB_PATH = config.SSH_KEY_PUB_PATH
+SSH_TIMEOUT = 15
 MAX_WORKERS = 12
-MAX_RETRIES = 2           # Reduced from 5 for speed
-DB_USER = "maamd"
-DB_DSN = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=scaqaa04cel12vm02.us.oracle.com)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=maapdb_devel.us.oracle.com)))"
+MAX_RETRIES = 2
+DB_USER = config.DB_USER
+DB_DSN = config.DB_DSN
 LOCK_FILE = "/tmp/setup_passwordless_ssh.pid"
-DB_PASSWORD = os.environ.get("DB_PASSWORD")
+DB_PASSWORD = config.DB_PASSWORD
 
 if not DB_PASSWORD:
     print("Error: DB_PASSWORD environment variable not set")
@@ -70,7 +72,7 @@ def setup_logging(debug=False):
     return logger
 
 # ========================= DECRYPTION =========================
-key_file = '/home/maatest/mchafin/MAA_APPS_NEW/encryption_key.txt'
+key_file = config.ENCRYPTION_KEY_FILE
 if os.path.exists(key_file):
     with open(key_file, 'rb') as f:
         ENCRYPTION_KEY = f.read()

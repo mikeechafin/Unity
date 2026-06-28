@@ -23,7 +23,9 @@ if not DB_PASSWORD:
     sys.exit(1)
 
 # Encryption key
-key_file = '/home/maatest/mchafin/MAA_APPS_NEW/encryption_key.txt'
+import config
+
+key_file = config.ENCRYPTION_KEY_FILE
 with open(key_file, 'rb') as f:
     ENCRYPTION_KEY = f.read()
 cipher_suite = Fernet(ENCRYPTION_KEY)

@@ -10,10 +10,11 @@
 import os
 from maa_libraries import logger
 from flask import current_app
+import config
 
-SCL_DIR = "/home/maatest/mchafin/MAA_APPS_NEW/scripts/scl"
-ILOM_DIR = "/home/maatest/mchafin/MAA_APPS_NEW/scripts/ilom"
-SHELL_DIR = "/home/maatest/mchafin/MAA_APPS_NEW/scripts/shell"
+SCL_DIR = config.SCL_DIR
+ILOM_DIR = config.ILOM_DIR
+SHELL_DIR = config.SHELL_DIR
 
 scl_functions = {}
 

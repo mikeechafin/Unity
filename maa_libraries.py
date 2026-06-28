@@ -30,7 +30,12 @@ import secrets
 import string
 import bcrypt
 from apscheduler.triggers.cron import CronTrigger
-from maa_db_pool import get_db_pool_connection, release_db_pool_connection
+from maa_db_pool import (
+    get_db_pool_connection as _central_pool_acquire,
+    release_db_pool_connection as _central_pool_release,
+    db_pool_context,
+)
+import config
 
 logger = logging.getLogger(__name__)
 agent_status = defaultdict(lambda: {"status": "unknown", "last_checked": None})
@@ -105,7 +110,7 @@ def get_active_agents():
         logger.error(f"Failed to get active agents: {e}")
         return []
 
-key_file = '/home/maatest/mchafin/MAA_APPS_NEW/encryption_key.txt'
+key_file = config.ENCRYPTION_KEY_FILE
 if os.path.exists(key_file):
     with open(key_file, 'rb') as f:
         ENCRYPTION_KEY = f.read()
@@ -175,20 +180,41 @@ def get_db_connection(username, password, dsn, timeout=None):
     except oracledb.Error as e:
         logger.error(f"Database connection failed: {e}, connect_params={connect_params}")
         raise
-def get_db_pool_connection(pool):
+def acquire_pool_connection(pool=None):
+    """Acquire a connection from the central pool, or a legacy pool object if passed."""
     try:
-        conn = pool.acquire()
+        if pool is not None:
+            conn = pool.acquire()
+        else:
+            conn = _central_pool_acquire()
         logger.debug("Database pool connection acquired")
         return conn
     except oracledb.Error as e:
         logger.error(f"Database pool connection failed: {e}")
         raise
-def release_db_connection(conn, pool):
+
+
+def release_pool_connection(conn, pool=None):
+    """Release connection back to central or legacy pool."""
+    if not conn:
+        return
     try:
-        pool.release(conn)
+        if pool is not None:
+            pool.release(conn)
+        else:
+            _central_pool_release(conn)
         logger.debug("Database pool connection released")
     except oracledb.Error as e:
         logger.error(f"Failed to release database pool connection: {e}")
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+# Backward-compatible aliases (prefer acquire_pool_connection / release_pool_connection)
+get_db_pool_connection = acquire_pool_connection
+release_db_connection = release_pool_connection
 def get_confluence_page_content(space_key, page_title, confluence_url, headers):
     url = f"{confluence_url}/content?title={page_title}&spaceKey={space_key}&expand=body.storage"
     try:
@@ -1635,10 +1661,10 @@ def setup_host_ssh(hostname, conn, ssh_keys, ssh_setup_failures, ssh_retries, ss
         return False
     finally:
         cursor.close()
-def get_credential_silent(cursor, component_type, component_name, username, log_file="/home/maatest/mchafin/MAA_APPS_NEW/output/collect_agent_data.log"):
-    """
-    Retrieve and decrypt credentials from maamd.access_credentials, logging to file.
-    """
+def get_credential_silent(cursor, component_type, component_name, username, log_file=None):
+    """Retrieve and decrypt credentials from maamd.access_credentials, logging to file."""
+    if log_file is None:
+        log_file = os.path.join(config.OUTPUT_DIR, 'collect_agent_data.log')
     def log(message, log_file=log_file):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(log_file, "a") as f:
@@ -2298,7 +2324,7 @@ def cleanup_agent(hostname):
     """Remove from host + EM"""
     logger.info(f"Cleaning up bad agent on {hostname}")
     # 1. Remove from EM
-    emcli_cmd = f"/home/maatest/mchafin/MAA_APPS_NEW/EMCLI/emcli delete_target -name=\"oracle_emd:{hostname}:{AGENT_PORT}\" -type=oracle_emd -delete_monitored_targets -force"
+    emcli_cmd = f"{config.EMCLI_PATH} delete_target -name=\"oracle_emd:{hostname}:{AGENT_PORT}\" -type=oracle_emd -delete_monitored_targets -force"
     subprocess.run(emcli_cmd, shell=True, capture_output=True)
     # 2. Remove from host
     try:
@@ -2311,7 +2337,7 @@ def cleanup_agent(hostname):
         pass
 def deploy_em_agent(hostname):
     """Full push deploy via emcli submit_add_host"""
-    emcli = "/home/maatest/mchafin/MAA_APPS_NEW/EMCLI/emcli"
+    emcli = config.EMCLI_PATH
     cmd = f'''
     {emcli} submit_add_host \
       -host_names="{hostname}" \
@@ -2372,5 +2398,5 @@ def get_current_agent_home(hostname):
 # Constants
 AGENT_BASE_DIR = "/u01/app/oracle/em/agent_vm04"
 AGENT_PORT = 2410
-EMCLI_PATH = "/home/maatest/mchafin/MAA_APPS_NEW/EMCLI/emcli"
-SSH_KEY_PATH = "/home/maatest/.ssh/id_rsa"
+EMCLI_PATH = config.EMCLI_PATH
+SSH_KEY_PATH = config.SSH_KEY_PATH

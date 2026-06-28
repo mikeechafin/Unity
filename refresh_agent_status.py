@@ -82,7 +82,9 @@ FD_LOCAL_PATH = "./fd"
 REMOTE_FD_PATH = "/tmp/fd"
 REMOTE_SEARCH_SCRIPT = "/tmp/search.sh"
 # Logging setup - ONLY to logfile; INFO level contains ONLY essential summaries; everything else is DEBUG
-log_directory = '/home/maatest/mchafin/MAA_APPS_NEW/output'
+import config
+
+log_directory = config.OUTPUT_DIR
 log_file = os.path.join(log_directory, 'refresh_agent_status.log')
 os.makedirs(log_directory, exist_ok=True)
 logger = logging.getLogger(__name__)
@@ -180,7 +182,7 @@ except Exception as e:
     logger.error(f"✗ Lock error: {e}")
     sys.exit(1)
 
-key_file = '/home/maatest/mchafin/MAA_APPS_NEW/encryption_key.txt'
+key_file = config.ENCRYPTION_KEY_FILE
 if os.path.exists(key_file):
     with open(key_file, 'rb') as f:
         ENCRYPTION_KEY = f.read()

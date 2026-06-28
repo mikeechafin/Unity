@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import os
 
-SCL_DIR = "/home/maatest/mchafin/MAA_APPS_NEW/scripts/scl"
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+import config
+SCL_DIR = config.SCL_DIR
 os.makedirs(SCL_DIR, exist_ok=True)
 
 files = {

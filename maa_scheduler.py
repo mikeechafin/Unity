@@ -21,6 +21,7 @@ import psutil
 import fcntl
 import subprocess
 import oracledb
+import config
 from flask import current_app, has_request_context
 from flask_login import current_user
 logger = logging.getLogger('MAA_Unified')
@@ -234,7 +235,7 @@ def run_script(script_name, job_id=None):
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True,
-                        cwd='/home/maatest/mchafin/MAA_APPS_NEW'
+                        cwd=config.APP_ROOT
                     )
                     start_time = datetime.now(timezone.utc)
                     stdout, stderr = process.communicate(timeout=3600)

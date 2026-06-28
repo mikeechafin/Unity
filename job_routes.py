@@ -333,7 +333,8 @@ def run_job(job_id):
         if script_path and script_path.startswith('FUNCTION:'):
             func_name = script_path[9:].strip()
             logger.info("Detected special function job: %s (job_id=%d)", func_name, job_id)
-            safe_log_dir = "/home/maatest/mchafin/MAA_APPS_NEW/output"
+            import config
+            safe_log_dir = config.OUTPUT_DIR
             os.makedirs(safe_log_dir, exist_ok=True)
             log_file = os.path.join(safe_log_dir, "maa_falcon_all.log")
             with open(log_file, 'w') as f:

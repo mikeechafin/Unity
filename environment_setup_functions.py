@@ -18,7 +18,9 @@ from concurrent.futures import ThreadPoolExecutor
 import csv
 from collections import defaultdict
 
-OUTPUT_DIR = "/home/maatest/mchafin/MAA_APPS_NEW/output"
+import config
+
+OUTPUT_DIR = config.OUTPUT_DIR
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 LOG_FILE = os.path.join(OUTPUT_DIR, "maa_falcon_all.log")
 

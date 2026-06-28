@@ -5,17 +5,18 @@ import logging
 from datetime import datetime, timezone
 import pytz
 import oracledb
+import config
 
-# Version: 1.0.1
+# Version: 1.0.2
 # Changelog:
 # - 1.0.0: Initial version for updating index statistics for a single table (2025-05-30)
 # - 1.0.1: Modified to update index statistics for all tables in a schema (2025-05-30)
 
 # Constants from collect_agent_data.py
-DB_USER = "maamd"
-DB_DSN = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=scaqaa04cel12vm02.us.oracle.com)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=maapdb_devel.us.oracle.com)))"
-DB_PASSWORD = os.environ.get("DB_PASSWORD", None)
-LOG_FILE = os.path.join(os.path.dirname(__file__), "output", "update_index_stats.log")
+DB_USER = config.DB_USER
+DB_DSN = config.DB_DSN
+DB_PASSWORD = config.DB_PASSWORD
+LOG_FILE = config.INDEX_STATS_LOG
 
 # Validate environment variable
 if not DB_PASSWORD:

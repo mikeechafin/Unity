@@ -12,8 +12,10 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
+import config
+
 print("=== REGISTRY v1.5 STARTING - DISCOVER_DBMACHINE WILL REGISTER AS GLOBAL ===")
-print("=== SCRIPT_BASE = /home/maatest/mchafin/MAA_APPS_NEW ===")
+print(f"=== SCRIPT_BASE = {config.APP_ROOT} ===")
 
 # ====================== EASY-TO-EDIT DISPLAY NAMES FOR ENVIRONMENT SETUP PAGE ======================
 DISPLAY_NAME_MAP = {
@@ -61,11 +63,11 @@ DISPLAY_NAME_MAP = {
 }
 
 # ====================== BASE DIRECTORIES (exact path you showed with pwd) ======================
-SCRIPT_BASE = "/home/maatest/mchafin/MAA_APPS_NEW"
-SCL_DIR = os.path.join(SCRIPT_BASE, "scripts/scl")
-ILOM_DIR = os.path.join(SCRIPT_BASE, "scripts/ilom")
-SHELL_DIR = os.path.join(SCRIPT_BASE, "scripts/shell")
-PLUGIN_DIR = os.path.join(SCRIPT_BASE, "scripts/plugins")
+SCRIPT_BASE = config.APP_ROOT
+SCL_DIR = config.SCL_DIR
+ILOM_DIR = config.ILOM_DIR
+SHELL_DIR = config.SHELL_DIR
+PLUGIN_DIR = config.PLUGIN_DIR
 
 for d in [SCL_DIR, ILOM_DIR, SHELL_DIR, PLUGIN_DIR,
           os.path.join(SCL_DIR, "Database Server"),

@@ -13,6 +13,7 @@ import spacy
 from spacy.matcher import PhraseMatcher
 import psutil
 from maa_libraries import get_db_connection
+import config
 
 # Configure logging with detailed format
 logging.basicConfig(
@@ -20,7 +21,7 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] [PID:%(process)d] [Thread:%(threadName)s]: %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('/home/maatest/mchafin/MAA_APPS_NEW/output/populate_agent_error_global.log')
+        logging.FileHandler(os.path.join(config.OUTPUT_DIR, 'populate_agent_error_global.log'))
     ]
 )
 logger = logging.getLogger(__name__)

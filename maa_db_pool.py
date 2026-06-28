@@ -4,11 +4,12 @@ Version: 2026-04-02 v1.0.2
 Changes: Extreme pool (min=30/max=150) + 10-attempt exponential backoff retry + 900s wait_timeout + aggressive ping + detailed stats logging. Kills ALL DPY-4005 exhaustion from concurrent web sessions + scheduler jobs. maamd-only for system tasks.
 """
 import oracledb
-import os
 import logging
 import threading
 import time
 from contextlib import contextmanager
+
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +23,12 @@ def init_db_pool():
         if _db_pool is not None:
             return _db_pool
         try:
-            dsn = os.environ.get('DB_DSN') or "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=scaqaa04cel12vm02.us.oracle.com)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=maapdb_devel.us.oracle.com)))"
+            if not config.DB_PASSWORD:
+                raise RuntimeError('DB_PASSWORD environment variable is required')
             _db_pool = oracledb.create_pool(
-                user='maamd',
-                password=os.environ.get('DB_PASSWORD'),
-                dsn=dsn,
+                user=config.DB_USER,
+                password=config.DB_PASSWORD,
+                dsn=config.DB_DSN,
                 min=30,
                 max=150,
                 increment=15,
@@ -54,9 +56,7 @@ def get_db_pool_connection():
             logger.warning(f"Pool acquire failed (attempt {attempt+1}/10): {e}")
             if attempt == 9:
                 logger.warning("Pool acquire failed after 10 attempts. Using standalone fallback (maamd).")
-                username = 'maamd'
-                password = os.environ.get('DB_PASSWORD')
-                return oracledb.connect(user=username, password=password, dsn=os.environ.get('DB_DSN'))
+                return oracledb.connect(user=config.DB_USER, password=config.DB_PASSWORD, dsn=config.DB_DSN)
             time.sleep(1.5 ** attempt)
     return None
 

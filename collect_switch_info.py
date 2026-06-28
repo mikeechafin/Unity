@@ -19,7 +19,9 @@ import sys
 logger = logging.getLogger('collect_switch_info')
 logger.setLevel(logging.DEBUG)
 
-LOG_PATH = '/home/maatest/mchafin/MAA_APPS_NEW/output/collect_switch_info.log'
+import config
+
+LOG_PATH = os.path.join(config.OUTPUT_DIR, 'collect_switch_info.log')
 BACKUP_PATH = LOG_PATH + '.bak'
 
 # Proper log rotation (matches unified scripts)

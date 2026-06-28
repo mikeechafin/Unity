@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Fleet Health Trends{% endblock %}
+{% block page_title %}FLEET HEALTH TRENDS{% endblock %}
+{% block content %}
+<div class="setup-container" style="padding-bottom:80px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:28px;">
+        <h2 style="margin:0; font-size:28px; color:#fff;">SSH &amp; ILOM Failure Trends</h2>
+        <button onclick="location.reload()" style="background:#10b981; color:#fff; padding:10px 20px; border-radius:9999px; border:none; cursor:pointer;">Refresh</button>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:16px; margin-bottom:32px;">
+        <div style="background:#1f2937; padding:20px; border-radius:12px; text-align:center;">
+            <div style="font-size:42px; color:#10b981; font-weight:700;">{{ data.summary.health_score }}%</div>
+            <div style="color:#cbd5e1;">Fleet Health Score</div>
+        </div>
+        <div style="background:#1f2937; padding:20px; border-radius:12px; text-align:center;">
+            <div style="font-size:42px; color:#f59e0b; font-weight:700;">{{ data.summary.ssh_unreachable }}</div>
+            <div style="color:#cbd5e1;">SSH Unreachable (port 22)</div>
+        </div>
+        <div style="background:#1f2937; padding:20px; border-radius:12px; text-align:center;">
+            <div style="font-size:42px; color:#ef4444; font-weight:700;">{{ data.summary.ssh_auth_failed }}</div>
+            <div style="color:#cbd5e1;">SSH Auth Failures</div>
+        </div>
+        <div style="background:#1f2937; padding:20px; border-radius:12px; text-align:center;">
+            <div style="font-size:42px; color:#ef4444; font-weight:700;">{{ data.summary.ilom_timeouts }}</div>
+            <div style="color:#cbd5e1;">ILOM Timeouts</div>
+        </div>
+        <div style="background:#1f2937; padding:20px; border-radius:12px; text-align:center;">
+            <div style="font-size:42px; color:#6366f1; font-weight:700;">{{ data.summary.ssh_last_failed_count }}</div>
+            <div style="color:#cbd5e1;">Last SSH Run Failures</div>
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:32px;">
+        <div style="background:#1f2937; padding:24px; border-radius:16px;">
+            <h3 style="color:#fff; margin-top:0;">SSH — Top Failing Hosts</h3>
+            {% if data.ssh.top_failed_hosts %}
+            <table style="width:100%; color:#e2e8f0; font-size:14px;">
+                <tr style="color:#94a3b8;"><th style="text-align:left;">Host</th><th style="text-align:right;">Count</th></tr>
+                {% for host, count in data.ssh.top_failed_hosts %}
+                <tr><td>{{ host }}</td><td style="text-align:right;">{{ count }}</td></tr>
+                {% endfor %}
+            </table>
+            {% else %}
+            <p style="color:#94a3b8;">No auth failure data in log{% if not data.ssh.log_exists %} (log file missing){% endif %}.</p>
+            {% endif %}
+            <p style="color:#64748b; font-size:12px; margin-top:12px;">Log: {{ data.ssh.log_size_mb }} MB</p>
+        </div>
+        <div style="background:#1f2937; padding:24px; border-radius:16px;">
+            <h3 style="color:#fff; margin-top:0;">ILOM — Top Timeout Hosts</h3>
+            {% if data.ilom.timeout_hosts %}
+            <table style="width:100%; color:#e2e8f0; font-size:14px;">
+                <tr style="color:#94a3b8;"><th style="text-align:left;">Host</th><th style="text-align:right;">Count</th></tr>
+                {% for host, count in data.ilom.timeout_hosts %}
+                <tr><td>{{ host }}</td><td style="text-align:right;">{{ count }}</td></tr>
+                {% endfor %}
+            </table>
+            {% else %}
+            <p style="color:#94a3b8;">No timeout data in log{% if not data.ilom.log_exists %} (log file missing){% endif %}.</p>
+            {% endif %}
+            <p style="color:#64748b; font-size:12px; margin-top:12px;">Log: {{ data.ilom.log_size_mb }} MB</p>
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+        <div style="background:#1f2937; padding:24px; border-radius:16px;">
+            <h3 style="color:#fff; margin-top:0;">SSH Daily Errors (14 days)</h3>
+            <canvas id="sshChart" height="200"></canvas>
+        </div>
+        <div style="background:#1f2937; padding:24px; border-radius:16px;">
+            <h3 style="color:#fff; margin-top:0;">ILOM Daily Errors (14 days)</h3>
+            <canvas id="ilomChart" height="200"></canvas>
+        </div>
+    </div>
+</div>
+<script src="/static/js/chart.umd.min.js"></script>
+<script>
+const sshDaily = {{ data.ssh.daily_errors | tojson }};
+const ilomDaily = {{ data.ilom.daily_errors | tojson }};
+function makeChart(canvasId, dailyData, color) {
+    const labels = Object.keys(dailyData);
+    const values = Object.values(dailyData);
+    new Chart(document.getElementById(canvasId), {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Errors', data: values, backgroundColor: color }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8', maxRotation: 45 } } } }
+    });
+}
+makeChart('sshChart', sshDaily, 'rgba(239,68,68,0.7)');
+makeChart('ilomChart', ilomDaily, 'rgba(245,158,11,0.7)');
+</script>
+{% endblock %}

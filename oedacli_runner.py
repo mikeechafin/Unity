@@ -8,10 +8,11 @@ import traceback
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from maa_libraries import logger, get_db_pool_connection, release_db_connection
+import config
 
-OEDA_BASE_DIR = "/home/maatest/mchafin/MAA_APPS_NEW/OEDA"
+OEDA_BASE_DIR = config.OEDA_BASE_DIR
 OEDACLI_BINARY = os.path.join(OEDA_BASE_DIR, "oedacli")
-GENERATOR_SCRIPT = "/home/maatest/mchafin/MAA_APPS_NEW/generate_oedacli_configs.py"
+GENERATOR_SCRIPT = os.path.join(config.APP_ROOT, "generate_oedacli_configs.py")
 WORKDIR = os.path.join(OEDA_BASE_DIR, "WorkDir")
 
 

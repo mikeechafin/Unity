@@ -35,7 +35,9 @@ import csv
 from collections import defaultdict
 from shared_state import execution_logs, log_lock
 
-OUTPUT_DIR = "/home/maatest/mchafin/MAA_APPS_NEW/output"
+import config
+
+OUTPUT_DIR = config.OUTPUT_DIR
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 LOG_FILE = os.path.join(OUTPUT_DIR, "setup_exascale.log")
 

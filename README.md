@@ -14,6 +14,12 @@ playwright install chromium   # required for ASR fault testing
 export DB_PASSWORD='<maamd-db-password>'
 export FLASK_SECRET_KEY='<random-secret>'
 
+# Optional overrides (defaults work for local dev)
+export MAA_APP_ROOT="$(pwd)"          # application root directory
+export MAA_OUTPUT_DIR="$(pwd)/output" # runtime logs
+export SSH_KEY_PATH="$HOME/.ssh/id_ed25519_maa"
+export MAA_PRODUCTION=1               # enforces FLASK_SECRET_KEY in production
+
 # 3. Create local secrets (not in git)
 # Fernet key for credential vault — generate once:
 python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" > encryption_key.txt
@@ -75,3 +81,22 @@ The following are **excluded from git** and must be provisioned per environment:
 | `/jobs` | Scheduled fleet jobs |
 | `/access` | Credential vault |
 | `/oedacli` | OEDA CLI integration |
+| `/fleet-health` | SSH & ILOM failure trends dashboard |
+
+## Configuration (`config.py`)
+
+Central configuration reads from environment variables:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MAA_APP_ROOT` | repo directory | Application root |
+| `DB_PASSWORD` | *(required)* | Oracle `maamd` password |
+| `DB_DSN` | devel TNS | Oracle connection string |
+| `FLASK_SECRET_KEY` | dev fallback | Session signing (required when `MAA_PRODUCTION=1`) |
+| `MAA_PRODUCTION` | off | Fail fast if secret key missing |
+| `MAA_OUTPUT_DIR` | `$APP_ROOT/output` | Log files for jobs and Fleet Health |
+| `SSH_KEY_PATH` | `~/.ssh/id_ed25519_maa` | Fleet SSH automation key |
+| `CELERY_BROKER` | `redis://localhost:6379/0` | Celery broker URL |
+| `RTI_BASE_DIR` | `$OUTPUT_DIR/RTI` | RTI capture storage |
+| `EMCLI_PATH` | `$APP_ROOT/EMCLI/emcli` | Enterprise Manager CLI |
+| `ENCRYPTION_KEY_FILE` | `$APP_ROOT/encryption_key.txt` | Credential vault Fernet key |

@@ -5,7 +5,7 @@
 #   - ade_kerberos_helper.py v1.9 now uses BROADEST password search for mchafin (all rows in ACCESS_CREDENTIALS)
 #   - All previous fixes preserved (forced remote SSH, strict Kerberos, etc.)
 
-from flask import Blueprint, redirect, render_template, url_for, flash, request, session, current_app, jsonify
+from flask import Blueprint, redirect, render_template, url_for, flash, request, session, current_app, jsonify, make_response
 from flask_login import login_required, current_user
 import threading
 import time
@@ -27,6 +27,7 @@ import re
 import json
 from scripts.plugins.setup_exascale_monitoring import setup_exascale_monitoring
 import traceback
+import config
 
 # NEW: Use the robust ADE helper (automatic Kerberos ticket renewal)
 from ade_kerberos_helper import run_ade_command
@@ -50,7 +51,7 @@ setup_bp = Blueprint('setup', __name__, url_prefix='/setup', template_folder='te
 
 @setup_bp.route('/cdn-cgi/challenge-platform/scripts/jsd/main.js')
 def cloudflare_challenge_dummy():
-    return '', 204
+    return make_response('', 204)
 
 @setup_bp.record_once
 def register_socketio_handlers(state):
@@ -324,10 +325,10 @@ def setup_environment():
                 flash("Invalid file type", "error")
                 return redirect(url_for('setup.setup_environment'))
             folder_map = {
-                '.scl': os.path.join("/home/maatest/mchafin/MAA_APPS_NEW/scripts/scl", target_type),
-                '.ilom': "/home/maatest/mchafin/MAA_APPS_NEW/scripts/ilom",
-                '.sh': os.path.join("/home/maatest/mchafin/MAA_APPS_NEW/scripts/shell", target_type),
-                '.py': "/home/maatest/mchafin/MAA_APPS_NEW/scripts/plugins"
+                '.scl': os.path.join(config.SCL_DIR, target_type),
+                '.ilom': config.ILOM_DIR,
+                '.sh': os.path.join(config.SHELL_DIR, target_type),
+                '.py': config.PLUGIN_DIR,
             }
             folder = folder_map.get(ext)
             if not folder:

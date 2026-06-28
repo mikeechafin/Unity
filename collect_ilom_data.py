@@ -17,9 +17,10 @@ from func_timeout import func_timeout, FunctionTimedOut
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 from maa_libraries import is_host_reachable, get_credential_silent, decrypt_data
+import config
 
-LOG_FILE_PATH = '/home/maatest/mchafin/MAA_APPS_NEW/output/collect_ilom_data.log'
-LOCK_FILE_PATH = '/home/maatest/mchafin/MAA_APPS_NEW/output/collect_ilom_data.lock'
+LOG_FILE_PATH = os.path.join(config.OUTPUT_DIR, 'collect_ilom_data.log')
+LOCK_FILE_PATH = os.path.join(config.OUTPUT_DIR, 'collect_ilom_data.lock')
 
 # Logger setup - default INFO to eliminate unnecessary debug noise; overridden only when --debug is passed
 logger = logging.getLogger(__name__)
@@ -29,13 +30,11 @@ formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-SSH_PRIVATE_KEY_PATH = '/home/maatest/.ssh/id_rsa'
+SSH_PRIVATE_KEY_PATH = config.SSH_KEY_PATH
 DEFAULT_ILOM_USERNAME = 'root'
-DSN = os.environ.get('DB_DSN') or "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=scaqaa04cel12vm02.us.oracle.com)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=maapdb_devel.us.oracle.com)))"
-DB_PASSWORD = os.environ.get('DB_PASSWORD')
-if not DB_PASSWORD:
+if not config.DB_PASSWORD:
     raise RuntimeError("DB_PASSWORD environment variable is required")
-DB_POOL = oracledb.SessionPool(user='maamd', password=DB_PASSWORD, dsn=DSN, min=1, max=10, increment=1)
+DB_POOL = oracledb.SessionPool(user=config.DB_USER, password=config.DB_PASSWORD, dsn=config.DB_DSN, min=1, max=10, increment=1)
 MAX_WORKERS = 10
 BATCH_SIZE = 100
 LOCK = Lock()

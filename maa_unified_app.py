@@ -40,8 +40,10 @@ from topology_routes import topology_bp
 from oedacli_routes import oedacli_bp
 from rti_routes import rti_bp
 from migration_routes import migration_bp
+from fleet_health_routes import fleet_health_bp
+import config
 
-celery = Celery('maa', broker='redis://localhost:6379/0', backend='redis://localhost:6379/0')
+celery = Celery('maa', broker=config.CELERY_BROKER, backend=config.CELERY_BROKER)
 celery.conf.update(
     task_serializer='json',
     accept_content=['json'],
@@ -79,7 +81,9 @@ class SocketIOHandler(logging.Handler):
 app = Flask(__name__, template_folder='templates')
 socketio = SocketIO(app, async_mode='threading')
 app.socketio = socketio
-app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'temporary-secure-key-1234567890')
+app.config['SECRET_KEY'] = config.require_secret_key()
+app.config['MAA_OUTPUT_DIR'] = config.OUTPUT_DIR
+app.config['MIGRATION_REPORTS_DIR'] = config.MIGRATION_REPORTS_DIR
 app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
@@ -99,6 +103,18 @@ def handle_join_fault(room):
 @socketio.on('leave_fault_room')
 def handle_leave(room):
     leave_room(room)
+
+@socketio.on_error_default
+def socketio_error_handler(e):
+    logger.warning("[SocketIO] Handler error (client may have disconnected): %s", e)
+
+
+@app.errorhandler(BrokenPipeError)
+@app.errorhandler(ConnectionResetError)
+def handle_client_disconnect(e):
+    logger.debug("Client disconnected during response: %s", e)
+    return make_response('', 204)
+
 
 @socketio.on('subscribe_rti')
 def handle_subscribe_rti(data):
@@ -238,8 +254,8 @@ def initialize_app():
                 logger.error("Failed to trim logo: %s", str(e))
 
         app.config['DB_CONFIG'] = {
-            'dsn': "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=scaqaa04cel12vm02.us.oracle.com)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=maapdb_devel.us.oracle.com)))",
-            'superuser': 'maamd'
+            'dsn': config.DB_DSN,
+            'superuser': config.DB_USER,
         }
         try:
             app.config['DB_POOL'] = init_db_pool()
@@ -257,8 +273,8 @@ if 'maa_unified_app' not in sys.modules:
 
 initialize_app()
 
-LOCK_FILE = "/tmp/maa_unified_app_new.lock"
-PID_FILE = "/tmp/maa_unified_app_new.pid"
+LOCK_FILE = config.LOCK_FILE
+PID_FILE = config.PID_FILE
 INSTANCE_LOCKED = False
 
 def acquire_instance_lock():
@@ -680,7 +696,8 @@ app.register_blueprint(topology_bp)
 app.register_blueprint(oedacli_bp, url_prefix='/oedacli')
 app.register_blueprint(rti_bp, url_prefix='/rti')
 app.register_blueprint(migration_bp, url_prefix='/migration')
-logger.info("Registered blueprints: access, agent, asrm, ilom, switches, jobs, setup, topology, oedacli, rti, migration")
+app.register_blueprint(fleet_health_bp)
+logger.info("Registered blueprints: access, agent, asrm, ilom, switches, jobs, setup, topology, oedacli, rti, migration, fleet_health")
 
 if __name__ == '__main__':
     from logging import getLogger
@@ -692,7 +709,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', help='Run in debug mode')
     args = parser.parse_args()
     try:
-        ssl_context = ('server.crt', 'server.key')
+        ssl_context = (config.TLS_CERT, config.TLS_KEY)
         with app.app_context():
             start_scheduler()
         socketio.run(app, host=args.host, port=args.port, use_reloader=False, allow_unsafe_werkzeug=True, ssl_context=ssl_context)

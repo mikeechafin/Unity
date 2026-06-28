@@ -21,17 +21,19 @@ from cryptography.fernet import Fernet
 
 print("=== OEDACLI CONFIG GENERATOR v1.36 STARTED ===")
 
-DISCOVERY_SCRIPT = "/home/maatest/mchafin/MAA_APPS_NEW/discover_dbmachine_standalone.py"
-OEDACLI_BINARY = "/home/maatest/mchafin/MAA_APPS_NEW/OEDA/oedacli"
+import config
+
+DISCOVERY_SCRIPT = os.path.join(config.APP_ROOT, "discover_dbmachine_standalone.py")
+OEDACLI_BINARY = os.path.join(config.OEDA_BASE_DIR, "oedacli")
 OUTPUT_DIR = "/tmp/oedacli_configs"
 MAX_WORKERS = 12
 DEFAULT_TIMEOUT = 600
 SSH_TEST_TIMEOUT = 6
-DSN = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=scaqaa04cel12vm02.us.oracle.com)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=maapdb_devel.us.oracle.com)))"
-DB_USER = os.environ.get('DB_USER', 'maamd')
-DB_PASSWORD = os.environ.get('DB_PASSWORD', 'welcome2')
+DSN = config.DB_DSN
+DB_USER = config.DB_USER
+DB_PASSWORD = config.DB_PASSWORD
 
-key_file = '/home/maatest/mchafin/MAA_APPS_NEW/encryption_key.txt'
+key_file = config.ENCRYPTION_KEY_FILE
 if os.path.exists(key_file):
     with open(key_file, 'rb') as f:
         ENCRYPTION_KEY = f.read()
@@ -142,7 +144,7 @@ def run_discovery_with_password(host, password, username="root", timeout=DEFAULT
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(host, username=username, password=password, timeout=12,
                        allow_agent=False, look_for_keys=False)
-        cmd = f"cd /home/maatest/mchafin/MAA_APPS_NEW && python3 -u {DISCOVERY_SCRIPT} {host} --json"
+        cmd = f"cd {config.APP_ROOT} && python3 -u {DISCOVERY_SCRIPT} {host} --json"
         if debug:
             cmd += " --debug"
         stdin, stdout, stderr = client.exec_command(cmd, timeout=timeout)

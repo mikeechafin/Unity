@@ -57,7 +57,9 @@ if not DB_PASSWORD:
     sys.exit(1)
 
 # Logging setup
-log_directory = "/home/maatest/mchafin/MAA_APPS_NEW/output"
+import config
+
+log_directory = config.OUTPUT_DIR
 log_file = f"{log_directory}/reset_oracle_passwords.log"
 if not os.path.exists(log_directory):
     os.makedirs(log_directory)
