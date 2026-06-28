@@ -82,6 +82,24 @@ The following are **excluded from git** and must be provisioned per environment:
 | `/access` | Credential vault |
 | `/oedacli` | OEDA CLI integration |
 | `/fleet-health` | SSH & ILOM failure trends dashboard |
+| `/agent/parser_status` | Agent log parser status + run pipeline |
+| `/agent/error_summary` | Fingerprint-grouped OEM agent errors |
+| `/agent/ai_insights` | Codex AI analysis — new issues & regressions |
+
+### Agent Log Parser
+
+Unified pipeline in `maa_agent_log_parser/`:
+
+```bash
+# Full pipeline: crawl → normalize/classify → rollup → regression → Codex
+python3 parse_agent_logs.py --debug --codex
+
+# Parse only (no rollup/AI)
+python3 parse_agent_logs.py --parse-only --test-host myhost.example.com
+```
+
+Set `CODEX_CLI=codex` (OpenAI Codex CLI) or `OPENAI_API_KEY` for AI analysis.
+Regression detection compares fingerprint snapshots between runs (`output/agent_error_analysis/`).
 
 ## Configuration (`config.py`)
 

@@ -60,6 +60,23 @@ RTI_BASE_DIR = os.environ.get('RTI_BASE_DIR', os.path.join(OUTPUT_DIR, 'RTI'))
 EMCLI_PATH = os.environ.get('EMCLI_PATH', os.path.join(APP_ROOT, 'EMCLI', 'emcli'))
 OEDA_BASE_DIR = os.environ.get('OEDA_BASE_DIR', os.path.join(APP_ROOT, 'OEDA'))
 
+# Agent log parser
+AGENT_PARSER_LOG = os.path.join(OUTPUT_DIR, 'parse_agent_logs.log')
+AGENT_ERROR_ANALYSIS_DIR = os.path.join(OUTPUT_DIR, 'agent_error_analysis')
+AGENT_ERROR_SNAPSHOT_FILE = os.path.join(AGENT_ERROR_ANALYSIS_DIR, 'current_snapshot.json')
+AGENT_ERROR_PREVIOUS_SNAPSHOT = os.path.join(AGENT_ERROR_ANALYSIS_DIR, 'previous_snapshot.json')
+AGENT_ERROR_CHANGES_FILE = os.path.join(AGENT_ERROR_ANALYSIS_DIR, 'changes.json')
+AGENT_ERROR_ANALYSIS_FILE = os.path.join(AGENT_ERROR_ANALYSIS_DIR, 'latest_analysis.json')
+
+# Codex / OpenAI (same pattern as exa_vm_migration_monitor --codex)
+CODEX_CLI = os.environ.get('CODEX_CLI', 'codex')
+CODEX_ENABLED = os.environ.get('CODEX_ENABLED', '1').lower() in ('1', 'true', 'yes')
+CODEX_MODEL = os.environ.get('CODEX_MODEL', 'gpt-4o')
+CODEX_TIMEOUT = int(os.environ.get('CODEX_TIMEOUT', '120'))
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+REGRESSION_SPIKE_PCT = float(os.environ.get('REGRESSION_SPIKE_PCT', '50'))
+REGRESSION_MIN_DELTA = int(os.environ.get('REGRESSION_MIN_DELTA', '10'))
+
 
 def require_secret_key():
     """Fail fast in production if FLASK_SECRET_KEY is not set."""

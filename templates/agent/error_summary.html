@@ -7,7 +7,11 @@
     <div class="card shadow">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h4 class="mb-0">OEM Agent Error Console - Fingerprint Grouped View (1000+ Agents Fleet)</h4>
-            <button onclick="exportCSV()" class="btn btn-success">Export CSV</button>
+            <div>
+                <a href="{{ url_for('agent.ai_insights') }}" class="btn btn-info me-2">AI Insights (Codex)</a>
+                <a href="{{ url_for('agent.parser_status') }}" class="btn btn-secondary me-2">Parser Status</a>
+                <button onclick="exportCSV()" class="btn btn-success">Export CSV</button>
+            </div>
         </div>
         <div class="card-body">
             <ul class="nav nav-tabs mb-3" id="errorTabs">

@@ -547,17 +547,18 @@ def schedule_jobs():
         logger.debug("Completed job scheduling process")
         # === MAA AGENT LOG PARSER DAILY JOB (added 2026-03-29) ===
         try:
-            from maa_agent_log_parser.core import run_parser
+            from maa_agent_log_parser.core import run_full_pipeline
             get_scheduler().add_job(
-                func=run_parser,
+                func=run_full_pipeline,
+                kwargs={'use_codex': True},
                 trigger='cron',
                 hour=2,
                 minute=0,
                 id='maa_agent_log_parser_daily',
-                name='Agent Log Parser - Daily Incremental (recent logs priority)',
+                name='Agent Log Parser - Daily crawl + rollup + Codex analysis',
                 replace_existing=True
             )
-            logger.info("Scheduled maa_agent_log_parser_daily at 02:00 UTC (late Eastern)")
+            logger.info("Scheduled maa_agent_log_parser_daily at 02:00 UTC (crawl + rollup + Codex)")
         except ImportError as e:
             logger.warning(f"maa_agent_log_parser not yet importable (install in PYTHONPATH): {e}")
         except Exception as e:

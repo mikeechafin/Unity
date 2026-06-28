@@ -67,10 +67,25 @@ def parser_status():
                 time.sleep(1.5 ** attempt)
         parser_stats_cache["data"] = (logs_tracked, unique_errors, last_parsed)
         parser_stats_cache["timestamp"] = now
+    import config as app_config
+    changes_summary = {'new_count': 0, 'regression_count': 0}
+    codex_available = False
+    try:
+        if os.path.isfile(app_config.AGENT_ERROR_CHANGES_FILE):
+            with open(app_config.AGENT_ERROR_CHANGES_FILE, 'r') as f:
+                ch = json.load(f)
+                changes_summary['new_count'] = ch.get('new_count', 0)
+                changes_summary['regression_count'] = ch.get('regression_count', 0)
+        from maa_codex_client import is_codex_available
+        codex_available = is_codex_available()
+    except Exception:
+        pass
     return render_template('agent/parser_status.html',
                            logs_tracked=logs_tracked,
                            unique_errors=unique_errors,
-                           last_parsed=last_parsed)
+                           last_parsed=last_parsed,
+                           changes_summary=changes_summary,
+                           codex_available=codex_available)
 
 @agent_bp.route('/error_summary')
 @login_required
@@ -96,16 +111,19 @@ def error_summary_data():
                 where.append("error_type = :1")
                 params.append(error_type)
             if search:
-                where.append("(LOWER(normalized_message) LIKE :2 OR error_hash LIKE :3)")
+                where.append("(LOWER(NVL(normalized_message, error_message_trunc)) LIKE :2 OR error_hash LIKE :3)")
                 params.extend([f"%{search}%", f"%{search}%"])
             where_clause = " AND ".join(where) if where else "1=1"
             query = f"""
                 SELECT /*+ FIRST_ROWS(25) */
-                    error_type, error_hash, normalized_message, SUM(occurrence_count) as total_occurrences,
-                    COUNT(DISTINCT hostname) as host_count, MAX(last_seen) as last_seen
+                    error_type, error_hash,
+                    NVL(normalized_message, error_message_trunc) AS normalized_message,
+                    SUM(occurrence_count) AS total_occurrences,
+                    COUNT(DISTINCT hostname) AS host_count,
+                    MAX(last_seen) AS last_seen
                 FROM maamd.agent_errors
                 WHERE {where_clause}
-                GROUP BY error_type, error_hash, normalized_message
+                GROUP BY error_type, error_hash, NVL(normalized_message, error_message_trunc)
                 ORDER BY total_occurrences DESC
                 OFFSET :4 ROWS FETCH NEXT 25 ROWS ONLY
             """
@@ -113,10 +131,11 @@ def error_summary_data():
             rows = cursor.fetchall()
             data = []
             for row in rows:
+                norm = row[2] or ''
                 data.append({
-                    "error_type": row[0],
+                    "error_type": row[0] or 'OTHER',
                     "fingerprint": row[1],
-                    "normalized": row[2][:120] + "..." if len(row[2]) > 120 else row[2],
+                    "normalized": norm[:120] + "..." if len(norm) > 120 else norm,
                     "occurrences": row[3],
                     "hosts": row[4],
                     "last_seen": row[5].strftime("%Y-%m-%d %H:%M") if row[5] else "",
@@ -177,11 +196,64 @@ def error_detail(fingerprint):
 def run_parser_now():
     try:
         import config
-        subprocess.Popen(["python3", os.path.join(config.APP_ROOT, "parse_agent_logs.py"), "--debug"])
-        flash("✅ Parser started in background. Check parse_agent_logs.log for progress.", "success")
+        use_codex = request.form.get('use_codex', '1') == '1'
+        cmd = ["python3", os.path.join(config.APP_ROOT, "parse_agent_logs.py"), "--debug"]
+        if use_codex:
+            cmd.append("--codex")
+        else:
+            cmd.append("--no-codex")
+        subprocess.Popen(cmd)
+        flash("✅ Full parser pipeline started (crawl + rollup + regression" +
+              (" + Codex" if use_codex else "") + "). Check parse_agent_logs.log.", "success")
     except Exception as e:
         flash(f"Failed to start parser: {e}", "error")
     return redirect(url_for('agent.parser_status'))
+
+
+@agent_bp.route('/ai_insights')
+@login_required
+def ai_insights():
+    import config
+    analysis = {}
+    changes = {}
+    codex_available = False
+    try:
+        from maa_codex_client import is_codex_available
+        codex_available = is_codex_available()
+    except Exception:
+        pass
+    if os.path.isfile(config.AGENT_ERROR_ANALYSIS_FILE):
+        with open(config.AGENT_ERROR_ANALYSIS_FILE, 'r') as f:
+            analysis = json.load(f)
+    if os.path.isfile(config.AGENT_ERROR_CHANGES_FILE):
+        with open(config.AGENT_ERROR_CHANGES_FILE, 'r') as f:
+            changes = json.load(f)
+    return render_template('agent/ai_insights.html',
+                           analysis=analysis,
+                           changes=changes,
+                           codex_available=codex_available)
+
+
+@agent_bp.route('/api/changes')
+@login_required
+def api_changes():
+    import config
+    if os.path.isfile(config.AGENT_ERROR_CHANGES_FILE):
+        with open(config.AGENT_ERROR_CHANGES_FILE, 'r') as f:
+            return jsonify(json.load(f))
+    return jsonify({'new_errors': [], 'regressions': [], 'is_first_run': True})
+
+
+@agent_bp.route('/run_codex_analysis', methods=['POST'])
+@login_required
+def run_codex_analysis_now():
+    try:
+        from maa_agent_log_parser.codex_analyzer import run_codex_analysis
+        run_codex_analysis(force=True)
+        flash("✅ Codex analysis complete.", "success")
+    except Exception as e:
+        flash(f"Codex analysis failed: {e}", "error")
+    return redirect(url_for('agent.ai_insights'))
 
 @agent_bp.route('/')
 @login_required

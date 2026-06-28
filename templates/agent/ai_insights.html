@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Agent Error AI Insights{% endblock %}
+{% block page_title %}AGENT ERROR AI INSIGHTS{% endblock %}
+{% block content %}
+<div class="content-wrapper" style="padding-bottom:60px;">
+    <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <h2 style="color:#fff; margin:0;">Codex Fleet Analysis</h2>
+        <div>
+            {% if codex_available %}
+            <form method="POST" action="{{ url_for('agent.run_codex_analysis_now') }}" style="display:inline;">
+                <button type="submit" class="btn btn-success" style="padding:10px 24px; border-radius:8px; border:none; cursor:pointer;">
+                    Re-run Codex Analysis
+                </button>
+            </form>
+            {% else %}
+            <span style="color:#f59e0b;">Codex unavailable — set CODEX_CLI or OPENAI_API_KEY</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:28px;">
+        <div style="background:#1f2937; padding:20px; border-radius:12px; text-align:center;">
+            <div style="font-size:36px; color:#10b981; font-weight:700;">{{ changes.new_count|default(0) }}</div>
+            <div style="color:#cbd5e1;">New Error Patterns</div>
+        </div>
+        <div style="background:#1f2937; padding:20px; border-radius:12px; text-align:center;">
+            <div style="font-size:36px; color:#ef4444; font-weight:700;">{{ changes.regression_count|default(0) }}</div>
+            <div style="color:#cbd5e1;">Regressions</div>
+        </div>
+        <div style="background:#1f2937; padding:20px; border-radius:12px; text-align:center;">
+            <div style="font-size:36px; color:#6366f1; font-weight:700;">{{ changes.fingerprint_count|default(0) }}</div>
+            <div style="color:#cbd5e1;">Total Fingerprints</div>
+        </div>
+    </div>
+
+    {% if analysis.analysis_markdown %}
+    <div style="background:#1f2937; padding:28px; border-radius:16px; margin-bottom:28px;">
+        <h3 style="color:#fff; margin-top:0;">AI Analysis
+            <span style="font-size:13px; color:#94a3b8; font-weight:normal;">
+                ({{ analysis.source|default('unknown') }} / {{ analysis.model|default('') }} — {{ analysis.timestamp|default('') }})
+            </span>
+        </h3>
+        <pre style="color:#e2e8f0; white-space:pre-wrap; font-family:inherit; font-size:14px; line-height:1.6;">{{ analysis.analysis_markdown }}</pre>
+    </div>
+    {% elif analysis.skipped %}
+    <div style="background:#1f2937; padding:20px; border-radius:12px; color:#94a3b8; margin-bottom:28px;">
+        AI analysis skipped: {{ analysis.reason|default('not yet run') }}.
+        Run the parser with <code>--codex</code> or click Re-run above.
+    </div>
+    {% else %}
+    <div style="background:#1f2937; padding:20px; border-radius:12px; color:#94a3b8; margin-bottom:28px;">
+        No AI analysis yet. Run the parser pipeline with Codex enabled.
+    </div>
+    {% endif %}
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+        <div style="background:#1f2937; padding:24px; border-radius:16px;">
+            <h3 style="color:#fff; margin-top:0;">New Error Patterns</h3>
+            {% for err in changes.new_errors|default([])[:15] %}
+            <div style="border-bottom:1px solid #374151; padding:10px 0; color:#e2e8f0; font-size:13px;">
+                <span style="color:#10b981; font-weight:600;">[{{ err.error_type }}]</span>
+                {{ err.host_count }} hosts / {{ err.total_count }} occurrences<br>
+                <span style="color:#94a3b8;">{{ err.normalized_message|default('')[:150] }}</span>
+            </div>
+            {% else %}
+            <p style="color:#64748b;">No new patterns since last run.</p>
+            {% endfor %}
+        </div>
+        <div style="background:#1f2937; padding:24px; border-radius:16px;">
+            <h3 style="color:#fff; margin-top:0;">Regressions</h3>
+            {% for err in changes.regressions|default([])[:15] %}
+            <div style="border-bottom:1px solid #374151; padding:10px 0; color:#e2e8f0; font-size:13px;">
+                <span style="color:#ef4444; font-weight:600;">+{{ err.delta }} ({{ err.pct_change }}%)</span>
+                [{{ err.error_type }}] {{ err.previous_count }} → {{ err.current_count }}<br>
+                <span style="color:#94a3b8;">{{ err.normalized_message|default('')[:150] }}</span>
+            </div>
+            {% else %}
+            <p style="color:#64748b;">No regressions detected.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

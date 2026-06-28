@@ -1,5 +1,4 @@
-<!-- Version: 2026-03-29 v1.2.1
-Changes: Dedicated parser status page with prominent "Run Parser Now" button + status cards + modern styling matching error_summary.html -->
+<!-- Version: 2026-06-28 v2.0.0 -->
 {% extends "base.html" %}
 {% block title %}Parser Status{% endblock %}
 {% block page_title %}Parser Status{% endblock %}
@@ -15,54 +14,74 @@ Changes: Dedicated parser status page with prominent "Run Parser Now" button + s
         {% endwith %}
     </div>
 
-    <div class="section-title">MAA Agent Log Parser Status</div>
+    <div class="section-title">MAA Agent Log Parser v2.0</div>
 
     <div class="row" style="margin-top: 30px;">
-        <!-- Logs Tracked Card -->
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card text-center" style="background:#f8f9fa; border:2px solid #0066cc; border-radius:12px; padding:25px;">
                 <h5 style="color:#0066cc;">Logs Tracked</h5>
                 <h2 style="font-size:3rem; margin:15px 0;">{{ logs_tracked }}</h2>
-                <p style="color:#666;">Agent log files in inventory</p>
+                <p style="color:#666;">Incremental inventory</p>
             </div>
         </div>
-
-        <!-- Unique Errors Card -->
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card text-center" style="background:#f8f9fa; border:2px solid #0066cc; border-radius:12px; padding:25px;">
-                <h5 style="color:#0066cc;">Unique Errors</h5>
+                <h5 style="color:#0066cc;">Unique Fingerprints</h5>
                 <h2 style="font-size:3rem; margin:15px 0; color:#d32f2f;">{{ unique_errors }}</h2>
-                <p style="color:#666;">Deduplicated across fleet</p>
+                <p style="color:#666;">SHA256 normalized dedup</p>
             </div>
         </div>
-
-        <!-- Last Parsed Card -->
-        <div class="col-md-4">
-            <div class="card text-center" style="background:#f8f9fa; border:2px solid #0066cc; border-radius:12px; padding:25px;">
-                <h5 style="color:#0066cc;">Last Parsed</h5>
-                <h2 style="font-size:2rem; margin:15px 0;">{{ last_parsed.strftime('%Y-%m-%d %H:%M') if last_parsed else 'Never' }}</h2>
-                <p style="color:#666;">UTC • Daily at 02:00</p>
+        <div class="col-md-3">
+            <div class="card text-center" style="background:#f8f9fa; border:2px solid #10b981; border-radius:12px; padding:25px;">
+                <h5 style="color:#10b981;">New Patterns</h5>
+                <h2 style="font-size:3rem; margin:15px 0; color:#10b981;">{{ changes_summary.new_count|default(0) }}</h2>
+                <p style="color:#666;">Since last run</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center" style="background:#f8f9fa; border:2px solid #ef4444; border-radius:12px; padding:25px;">
+                <h5 style="color:#ef4444;">Regressions</h5>
+                <h2 style="font-size:3rem; margin:15px 0; color:#ef4444;">{{ changes_summary.regression_count|default(0) }}</h2>
+                <p style="color:#666;">Occurrence spikes</p>
             </div>
         </div>
     </div>
 
-    <!-- Run Parser Now Button -->
+    <div class="row" style="margin-top:20px;">
+        <div class="col-md-12">
+            <div class="card text-center" style="background:#f8f9fa; border:2px solid #0066cc; border-radius:12px; padding:20px;">
+                <h5 style="color:#0066cc;">Last Parsed</h5>
+                <h3 style="margin:10px 0;">{{ last_parsed.strftime('%Y-%m-%d %H:%M') if last_parsed else 'Never' }}</h3>
+                <p style="color:#666;">UTC • Daily at 02:00 (crawl + rollup + Codex)</p>
+            </div>
+        </div>
+    </div>
+
     <div style="text-align:center; margin:40px 0;">
         <form method="POST" action="{{ url_for('agent.run_parser_now') }}">
+            <input type="hidden" name="use_codex" value="0" id="use_codex_hidden">
+            <label style="display:block; margin-bottom:16px; color:#333;">
+                <input type="checkbox" id="use_codex_cb" checked onchange="document.getElementById('use_codex_hidden').value=this.checked?'1':'0'">
+                Include Codex AI analysis (new issues + regressions)
+                {% if not codex_available %}<span style="color:#f59e0b;"> — Codex CLI/API not detected</span>{% endif %}
+            </label>
             <button type="submit" class="btn btn-success btn-lg" style="padding:18px 50px; font-size:1.4rem; border-radius:12px;">
-                ▶️ Run Parser Now
+                Run Full Pipeline
             </button>
         </form>
         <p style="margin-top:15px; color:#666; font-size:0.95rem;">
-            (Instant collection • Uses latest logs only • Safe to run anytime)
+            Incremental byte-offset parsing • Normalize + classify • Fleet rollup
         </p>
     </div>
 
-    <!-- Quick Links -->
-    <div style="text-align:center;">
+    <div style="text-align:center; display:flex; gap:16px; justify-content:center; flex-wrap:wrap;">
         <a href="{{ url_for('agent.error_summary') }}" class="action-button" style="font-size:1.1rem; padding:12px 30px;">
-            View Full Error Summary →
+            Error Summary →
+        </a>
+        <a href="{{ url_for('agent.ai_insights') }}" class="action-button" style="font-size:1.1rem; padding:12px 30px; background:#6366f1;">
+            AI Insights (Codex) →
         </a>
     </div>
 </div>
+<script>document.getElementById('use_codex_hidden').value='1';</script>
 {% endblock %}
