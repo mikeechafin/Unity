@@ -1,0 +1,4 @@
+create role administrator
+grant privilege all actions on all objects all attributes with all options to role administrator
+create user celladministrator password='TestPass1'
+grant role administrator to user celladministrator
