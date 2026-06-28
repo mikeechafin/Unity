@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log File: {{ script_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles_agent.css') }}">
+    <style>
+        /* Override styles for readable log display */
+        .main-content {
+            background-color: #FFFFFF; /* White background for readability */
+            padding: 10px;
+            color: #000000;
+        }
+        .content-wrapper {
+            background-color: #FFFFFF; /* Match main content */
+            padding: 10px;
+        }
+        pre {
+            background-color: #F5F5F5; /* Light grey background for preformatted text */
+            padding: 10px;
+            border: 1px solid #000000;
+            white-space: pre-wrap; /* Allow wrapping for long lines */
+            word-wrap: break-word;
+            font-size: 14px; /* Match table text size */
+            line-height: 1.5;
+            overflow-x: auto; /* Horizontal scroll if needed */
+        }
+        .back-button-container {
+            margin-top: 10px;
+        }
+        .back-button {
+            min-width: 180px;
+            height: 35px;
+            font-size: 14px;
+        }
+        .header {
+            background-color: #C1272D;
+            height: 40px;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo img {
+            height: 40px;
+            vertical-align: middle;
+        }
+        .custom-page-title {
+            font-size: 24px;
+            text-align: center;
+            flex-grow: 1;
+            margin: 0;
+            color: #FFFFFF;
+            line-height: 40px;
+            text-transform: uppercase;
+        }
+        .user-info {
+            font-size: 14px;
+            line-height: 40px;
+            color: #FFFFFF;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        {% if logo_base64 %}
+        <div class="logo">
+            <img src="data:image/png;base64,{{ logo_base64 }}" alt="Oracle Logo">
+        </div>
+        {% endif %}
+        <div class="custom-page-title">Log File: {{ script_name }}</div>
+        <div class="user-info">
+            <span class="username">{{ username }}</span> | 
+            <a href="{{ url_for('logout') }}" class="logout">Logout</a>
+        </div>
+    </div>
+    <div class="main-content">
+        <div class="content-wrapper">
+            <pre>{{ log_content }}</pre>
+            <div class="back-button-container">
+                <form method="get" action="{{ url_for('scheduled_jobs') }}" style="display: inline;">
+                    <button type="submit" class="back-button">Back to Scheduled Jobs</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,923 @@
+<!-- Filename: templates/setup_environment.html -->
+<!-- Version: 2026-05-05 v1.80 -->
+<!-- Changes: v1.80 – Fixed blank "Copy Latest Patches" series/label dropdowns. Enhanced populateSeriesDropdown() and loadLabelsForSeries() with detailed console logging, empty-result handling, and clear UI error messages instead of silent blank selects. Added defensive checks and retry-friendly error text. Global section population now always produces visible feedback. All other functionality unchanged. -->
+{% extends "base.html" %}
+{% block page_title %}Environment Setup{% endblock %}
+{% set DEBUG_MODE = false %}
+{% block content %}
+<style>
+/* SELF-CONTAINED DARK LAYOUT - two separate equal-height tiles per column with gap */
+.setup-columns {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 20px !important;
+    margin-bottom: 10px !important;
+}
+.setup-column {
+    flex: 1 !important;
+    min-width: 340px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+}
+.component-tile, .function-tile {
+    background: #1f2937 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4) !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 550px !important;
+}
+.section-header {
+    background: #0f172a !important;
+    color: #fff !important;
+    padding: 14px 20px !important;
+    font-weight: 600 !important;
+    font-size: 15px !important;
+    text-align: center !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 2 !important;
+}
+.scrollable-section {
+    flex: 1 !important;
+    height: 100% !important;
+    overflow-y: scroll !important;
+    padding: 8px !important;
+    scrollbar-width: thin !important;
+    scrollbar-color: #64748b #334155 !important;
+}
+.scrollable-section::-webkit-scrollbar {
+    width: 8px !important;
+}
+.scrollable-section::-webkit-scrollbar-thumb {
+    background: #64748b !important;
+    border-radius: 4px !important;
+}
+.component-table, .script-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    margin-bottom: 0 !important;
+}
+.component-table th, .script-table th {
+    background: #0f172a !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 3 !important;
+}
+.component-table td, .script-table td {
+    padding: 14px 20px !important;
+    border-bottom: 1px solid #334155 !important;
+    color: #e2e8f0 !important;
+}
+/* CUSTOM SHELL - v1.65 CONTAINMENT FIX (unchanged) */
+.custom-shell-section {
+    margin-top: 12px !important;
+    width: 100% !important;
+}
+.custom-shell-content {
+    display: none;
+    padding: 16px !important;
+    background: #1f2937 !important;
+    border: 2px solid #334155 !important;
+    border-radius: 12px !important;
+    margin-top: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+    max-height: 380px !important;
+    overflow-y: auto !important;
+}
+.custom-shell-content textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 14px !important;
+    background: #334155 !important;
+    border: 1px solid #475569 !important;
+    border-radius: 12px !important;
+    color: #fff !important;
+    font-family: monospace !important;
+    resize: vertical !important;
+}
+/* GLOBAL FUNCTIONS - 50% narrower + LEFT JUSTIFIED */
+.global-functions-section {
+    background: #1f2937 !important;
+    padding: 24px !important;
+    border-radius: 16px !important;
+    border: 2px solid #334155 !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4) !important;
+    max-width: 65% !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+}
+/* REINFORCED FLOATING ACTION BAR (green menu ball) */
+.fab-container {
+    position: fixed !important;
+    bottom: 30px !important;
+    right: 30px !important;
+    z-index: 99999 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+}
+.fab-main {
+    width: 68px !important;
+    height: 68px !important;
+    border-radius: 50% !important;
+    background: #10b981 !important;
+    color: white !important;
+    font-size: 28px !important;
+    border: none !important;
+    box-shadow: 0 6px 20px rgba(16,185,129,0.5) !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 99999 !important;
+}
+.fab-dial {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    margin-top: 12px !important;
+    opacity: 0 !important;
+    transform: translateY(20px) !important;
+    transition: all 0.3s ease !important;
+    pointer-events: none !important;
+}
+.fab-container:hover .fab-dial {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    pointer-events: auto !important;
+}
+.fab-action {
+    padding: 12px 24px !important;
+    border-radius: 9999px !important;
+    background: white !important;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
+    cursor: pointer !important;
+    font-size: 15px !important;
+    white-space: nowrap !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+/* LOG TAB STYLING */
+.log-tab {
+    padding: 8px 16px;
+    background: #334155;
+    color: #fff;
+    border-radius: 9999px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-right: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+}
+.log-tab.active { background: #10b981; }
+.log-tab.running { background: #f59e0b; }
+.log-tab.success { background: #10b981; }
+.log-tab.error { background: #ef4444; }
+.log-tab .close {
+    font-size: 18px;
+    line-height: 1;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+}
+/* RICH LOG RENDERING v1.67 */
+#log-output {
+    background:#111827;
+    color:#e2e8f0;
+    padding:20px;
+    height:420px;
+    overflow:auto;
+    border:2px solid #334155;
+    border-radius:12px;
+    font-family:monospace;
+    white-space:pre-wrap;
+    line-height:1.5;
+}
+#log-output p, #log-output table, #log-output h3, #log-output tr, #log-output td {
+    margin: 0 0 12px 0;
+}
+.no-output-note {
+    background: #451a03;
+    border: 1px solid #f59e0b;
+    color: #fbbf24;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin: 12px 0;
+    font-size: 13px;
+    line-height: 1.4;
+}
+</style>
+<div class="setup-container" style="padding-bottom: 140px;">
+    <!-- DEBUG BANNER - only shown when DEBUG_MODE = true -->
+    {% if DEBUG_MODE %}
+    <div style="background:#10b981; color:#fff; padding:15px; border-radius:12px; margin-bottom:20px; font-family:monospace; font-size:14px;">
+        <strong>v1.80 – DEBUG_MODE enabled (remove this banner by setting DEBUG_MODE = false)</strong>
+    </div>
+    {% endif %}
+    <!-- Page Header -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="margin:0; font-size:28px; color:#fff; display:flex; align-items:center; gap:12px;">
+            ⚙️
+            <span>Exadata Environment Setup</span>
+        </h2>
+    </div>
+    <!-- Filters + Top Action Bar -->
+    <div class="top-controls" style="margin-bottom:25px; display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:300px;">
+            <label style="font-weight:600; color:#64748b; white-space:nowrap;">Filter Components (hostname / rack)</label>
+            <input type="text" id="filter" name="filter" value="{{ filter_text }}" placeholder="e.g. scaqal02 or adm"
+                   oninput="liveFilter(this.value)"
+                   style="flex:1; max-width:420px; padding:14px 20px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:15px; outline:none;">
+        </div>
+    </div>
+    <!-- Scrollable Component Columns -->
+    <div class="setup-columns">
+        {% for ctype in component_types %}
+            {% if ctype != 'Global' %}
+                <div class="setup-column">
+                    <!-- COMPONENT TILE -->
+                    <div class="component-tile">
+                        <div class="section-header component-header">
+                            {{ ctype }} Components
+                        </div>
+                        <div class="scrollable-section component-scroll">
+                            <table class="component-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:40px; padding:14px 12px; text-align:center;">
+                                            <input type="checkbox" id="select-all-components-{{ ctype|replace(' ', '-') }}" onclick="toggleComponentCheckboxes(this, '{{ ctype|replace(' ', '-') }}')">
+                                        </th>
+                                        <th style="padding:14px 20px; text-align:left;">Hostname</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for component, rack in components[ctype] %}
+                                        {% set lower_comp = component | lower %}
+                                        {% set is_switch = ('sw-adm' in lower_comp or 'sw-' in lower_comp or 'switch' in lower_comp or 'leaf' in lower_comp or 'spine' in lower_comp) %}
+                                        {% if not is_switch or 'switch' in ctype.lower() %}
+                                            <tr class="{{ ctype|replace(' ', '-') }}">
+                                                <td style="padding:14px 12px; text-align:center;">
+                                                    <input type="checkbox" name="component_names" value="{{ component }}">
+                                                </td>
+                                                <td class="hostname-cell" style="padding:14px 20px; color:#e2e8f0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ component }}</td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- FUNCTION TILE (same height, separate tile) -->
+                    <div class="function-tile">
+                        <div class="section-header function-header">
+                            Functions for {{ ctype }}
+                        </div>
+                        <div class="scrollable-section function-scroll">
+                            {% set scripts = functions_by_type[ctype] %}
+                            {% if scripts %}
+                                <table class="script-table component-table">
+                                    <thead>
+                                        <tr>
+                                            <!-- NO SELECT-ALL COLUMN -->
+                                            <th style="padding:14px 20px; text-align:left;">Function Name</th>
+                                            <th style="padding:14px 20px; text-align:left;">Parameters (Optional)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for script in scripts %}
+                                            {% if script.name != 'test_function' and script.name != 'setup_exascale_monitoring' %}
+                                                <tr class="{{ ctype|replace(' ', '-') }}">
+                                                    <td style="padding:14px 20px; color:#e2e8f0;">
+                                                        <input type="checkbox" name="functions_{{ ctype|replace(' ', '_') }}" value="{{ script.name }}" class="function-checkbox" data-type="{{ ctype|replace(' ', '_') }}">
+                                                        {{ script.display_name }}
+                                                        <span class="info-icon" title="{{ script.description }}" onclick="event.stopPropagation();">ℹ️</span>
+                                                    </td>
+                                                    <td class="param-cell" style="padding:14px 20px; color:#e2e8f0;">
+                                                        {% if script.name == 'patch_database' and ctype == 'Database Server' %}
+                                                            <select name="params_Database_Server_patch_database_patch_zip" style="width:100%; padding:12px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                                                                <option value="">Select Zip</option>
+                                                                {% for zip in db_patch_zips %}
+                                                                    <option value="{{ zip }}">{{ zip }}</option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        {% elif script.name == 'patch_guest' and ctype == 'Guest' %}
+                                                            <select name="params_Guest_patch_guest_patch_zip" style="width:100%; padding:12px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                                                                <option value="">Select Zip</option>
+                                                                {% for zip in guest_patch_zips %}
+                                                                    <option value="{{ zip }}">{{ zip }}</option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        {% elif script.name == 'patch_storage' and ctype == 'Storage Server' %}
+                                                            <select name="params_Storage_Server_patch_storage_patch_version" style="width:100%; padding:12px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                                                                <option value="">-- Select patch zip from staging directory --</option>
+                                                                {% for v in storage_versions %}
+                                                                    <option value="{{ v }}">{{ v }}</option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        {% else %}
+                                                            {% for param in script.params %}
+                                                                <div class="form-group" style="margin-bottom:12px;">
+                                                                    <label style="display:block; margin-bottom:6px; font-size:13px; color:#64748b;">{{ param.label }}</label>
+                                                                    {% if param.type == 'select' and param.options_source == "series" %}
+                                                                        <select name="params_{{ ctype|replace(' ', '_') }}_{{ script.name }}_patch_zip" style="width:100%; padding:12px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                                                                            <option value="">-- Select patch zip file from staging directory --</option>
+                                                                            {% for opt in series_cache %}
+                                                                                <option value="{{ opt }}">{{ opt }}</option>
+                                                                            {% endfor %}
+                                                                        </select>
+                                                                    {% elif param.type == 'select' %}
+                                                                        <select name="params_{{ ctype|replace(' ', '_') }}_{{ script.name }}_{{ param.name }}" style="width:100%; padding:12px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                                                                            {% for opt in param.options %}
+                                                                                <option value="{{ opt.value }}">{{ opt.label }}</option>
+                                                                            {% endfor %}
+                                                                        </select>
+                                                                    {% else %}
+                                                                        <input type="{{ param.type }}" name="params_{{ ctype|replace(' ', '_') }}_{{ script.name }}_{{ param.name }}" placeholder="{{ param.placeholder|default('') }}" style="width:100%; padding:12px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                                                                    {% endif %}
+                                                                </div>
+                                                            {% endfor %}
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <p style="padding:30px; color:#ef4444; text-align:center; font-size:18px;">No functions available for {{ ctype }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <!-- Collapsible Custom Shell - v1.65 fixed containment -->
+                    <div class="custom-shell-section">
+                        <h4 onclick="toggleCustomShell(this)" style="cursor:pointer; margin:0; padding:14px 20px; background:#0f172a; color:#fff; border-radius:12px; font-weight:600; display:flex; align-items:center; justify-content:space-between;">
+                            Advanced: Run Custom Command as root
+                            <span style="font-size:18px;">▶</span>
+                        </h4>
+                        <div class="custom-shell-content">
+                            <textarea id="custom_cmd_{{ ctype|replace(' ', '_') }}" rows="3" placeholder="Enter shell command (runs as root on selected hosts)"></textarea>
+                            <button onclick="runCustomCommand('{{ ctype }}')" class="small-action-button" style="margin-top:12px; background:#10b981; color:#fff; border-radius:9999px; padding:14px 28px; font-weight:600; width:100%;">Run Command</button>
+                            <small style="color:#64748b; display:block; margin-top:8px;">Session re-auth required. Full audit log created.</small>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    <!-- GLOBAL FUNCTIONS SECTION - left-justified -->
+    <div class="global-functions-section">
+        <h3 onclick="toggleGlobalFunctions(this)" style="cursor:pointer; margin:0; padding:14px 24px; background:#0f172a; color:#fff; border-radius:12px; font-weight:600; display:flex; align-items:center; justify-content:space-between;">
+            Global Functions (Copy Latest Patches etc.)
+            <span style="font-size:18px;">▶</span>
+        </h3>
+        <div class="global-content" style="display:none; padding:24px 0 0 0;">
+            <table class="component-table" style="width:100%; table-layout:fixed; margin-bottom:0;">
+                <thead style="background:#0f172a;">
+                    <tr>
+                        <!-- NO SELECT-ALL COLUMN -->
+                        <th style="padding:14px 24px; text-align:left;">Function Name</th>
+                        <th style="padding:14px 24px; text-align:left;">Parameters (Optional)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Copy Latest Patches -->
+                    <tr style="background:#1f2937; border-bottom:1px solid #334155;">
+                        <td style="padding:14px 24px; color:#e2e8f0;">
+                            <input type="checkbox" name="functions_Global" value="copy_latest_patches" class="function-checkbox" data-type="Global">
+                            Copy Latest Patches
+                            <span class="info-icon" title="Copies latest patches from ADE staging server to local PATCHING directory">ℹ️</span>
+                        </td>
+                        <td class="param-cell" style="padding:14px 24px;">
+                            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                                <div style="flex:1; min-width:220px;">
+                                    <label style="display:block; margin-bottom:6px; font-size:13px; color:#64748b;">Series</label>
+                                    <select name="params_Global_copy_latest_patches_series" id="global-series-select" onchange="loadLabelsForSeries(this.value)" style="width:100%; padding:12px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                                        <option value="">-- Select Series --</option>
+                                    </select>
+                                </div>
+                                <div style="flex:1; min-width:220px;">
+                                    <label style="display:block; margin-bottom:6px; font-size:13px; color:#64748b;">Label</label>
+                                    <select name="params_Global_copy_latest_patches_label" id="global-label-select" style="width:100%; padding:12px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                                        <option value="">-- Select Label (after choosing Series) --</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Setup Exascale Monitoring -->
+                    <tr style="background:#1f2937; border-bottom:1px solid #334155;">
+                        <td style="padding:14px 24px; color:#e2e8f0;">
+                            <input type="checkbox" name="functions_Global" value="setup_exascale_monitoring" class="function-checkbox" data-type="Global">
+                            Setup Exascale Monitoring
+                            <span class="info-icon" title="Creates excmonitor user, generates RSA key pair, stores private/public keys in MAAMD.ACCESS_CREDENTIALS, sets up wallet on all Exascale hosts, and configures REST endpoint">ℹ️</span>
+                        </td>
+                        <td class="param-cell" style="padding:14px 24px;">
+                            <div style="flex:1;">
+                                <label style="display:block; margin-bottom:6px; font-size:13px; color:#64748b;">Exascale REST Endpoint (host:5052)</label>
+                                <input type="text" name="params_Global_setup_exascale_monitoring_rest_endpoint" placeholder="e.g. scaqat01ers01.us.oracle.com:5052 (leave blank for auto-discovery)" style="width:100%; padding:12px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                                <small style="color:#ef4444; display:block; margin-top:6px;">Requires ≥1 Guest or non-virtual DB Server + ≥3 Storage Servers</small>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- ALL OTHER GLOBAL FUNCTIONS from registry -->
+                    {% for script in functions_by_type.get('Global', []) %}
+                        {% if script.name != 'copy_latest_patches' and script.name != 'test_function' and script.name != 'setup_exascale_monitoring' %}
+                            <tr style="background:#1f2937; border-bottom:1px solid #334155;">
+                                <td style="padding:14px 24px; color:#e2e8f0;">
+                                    <input type="checkbox" name="functions_Global" value="{{ script.name }}" class="function-checkbox" data-type="Global">
+                                    {{ script.display_name }}
+                                    <span class="info-icon" title="{{ script.description }}">ℹ️</span>
+                                </td>
+                                <td class="param-cell" style="padding:14px 24px;">
+                                    {% for param in script.params %}
+                                        <div style="margin-bottom:12px;">
+                                            <label style="display:block; margin-bottom:6px; font-size:13px; color:#64748b;">{{ param.label }}</label>
+                                            {% if param.type == 'select' %}
+                                                <select name="params_Global_{{ script.name }}_{{ param.name }}" style="width:100%; padding:12px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                                                    {% for opt in param.options %}
+                                                        <option value="{{ opt.value }}">{{ opt.label }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            {% else %}
+                                                <input type="{{ param.type }}" name="params_Global_{{ script.name }}_{{ param.name }}" placeholder="{{ param.placeholder|default('') }}" style="width:100%; padding:12px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff;">
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <!-- Execution Logs Panel -->
+    <div id="log-panel" style="margin-top:40px;">
+        <h3 style="margin-bottom:12px; color:#fff;">Execution Logs</h3>
+        <div id="log-tabs" style="margin-bottom:12px; display:flex; flex-wrap:wrap; gap:8px;"></div>
+        <div id="log-output" style="background:#111827; color:#e2e8f0; padding:20px; height:420px; overflow:auto; border:2px solid #334155; border-radius:12px; font-family:monospace; white-space:pre-wrap; line-height:1.5;">No active execution logs.<br>Run a function to begin logging.</div>
+        <!-- RAW DEBUG PANEL - only shown when DEBUG_MODE = true -->
+        {% if DEBUG_MODE %}
+        <h4 style="margin:15px 0 8px 0; color:#64748b;">Raw Socket.IO Messages (DEBUG_MODE enabled)</h4>
+        <div id="raw-debug"></div>
+        <div class="raw-debug-controls">
+            <input type="text" id="raw-filter" placeholder="Filter raw messages..." oninput="filterRawDebug(this.value)" style="flex:1; padding:8px 16px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:13px;">
+            <button onclick="clearRawDebug()" style="background:#ef4444;color:#fff;border:none;padding:8px 20px;border-radius:9999px;cursor:pointer;font-size:13px;">Clear</button>
+            <button onclick="copyRawDebug()" style="background:#10b981;color:#fff;border:none;padding:8px 20px;border-radius:9999px;cursor:pointer;font-size:13px;">Copy All</button>
+        </div>
+        {% endif %}
+    </div>
+    <!-- FLOATING ACTION BAR (green menu ball) - reinforced -->
+    <div class="fab-container">
+        <button id="run-button" class="fab-main" onclick="runSelectedFunctions(event)">▶</button>
+        <div class="fab-dial">
+            <button class="fab-action fab-clear" onclick="clearCompletedTabs()">
+                🗑 <span class="fab-label">CLEAR COMPLETED TABS</span>
+            </button>
+            {% if current_user.role == 'admin' %}
+            <button class="fab-action fab-upload" onclick="showUploadModal()">
+                📤 <span class="fab-label">Upload New Script</span>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    <!-- INLINE CRITICAL JS - v1.80 ENHANCED DROPDOWN POPULATION -->
+    <script>
+        const DEBUG_MODE = {{ DEBUG_MODE | lower }};
+        let socket;
+        window.logBuffers = {};
+        window.rawDebugLines = [];
+        window.seenLinesPerJob = {};
+        function initSocket() {
+            if (typeof io !== 'undefined') {
+                socket = io({ transports: ['polling', 'websocket'] });
+                const events = ['message', 'execution_log', 'log'];
+                events.forEach(ev => {
+                    socket.on(ev, function(data) {
+                        if (DEBUG_MODE) {
+                            const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 3 });
+                            const rawLine = `[${timestamp}] [${ev}] ${JSON.stringify(data, null, 2)}`;
+                            window.rawDebugLines.unshift(rawLine);
+                            if (window.rawDebugLines.length > 120) window.rawDebugLines.pop();
+                            renderRawDebug();
+                            console.log(`%c📡 [v1.80 DEBUG] Received on event '${ev}':`, 'color:#10b981; font-weight:bold', data);
+                        }
+                        let taskId = (data.task_id || data.taskId || '').trim();
+                        let line = data.line || data.message || data.data || '';
+                        const status = data.status || 'running';
+                        if (!taskId && !line) return;
+                        if (taskId === 'debug' || taskId === 'error') return;
+                        let matchedJobId = taskId;
+                        if (!window.logBuffers[matchedJobId]) {
+                            let displayTitle = taskId;
+                            if (taskId.startsWith('global_')) {
+                                displayTitle = taskId.replace(/^global_/, '').replace(/_\w{8}$/, '').replace(/_/g, ' ');
+                            } else if (taskId.includes('_group')) {
+                                const func = taskId.split('_group')[0].replace('patch_', '');
+                                displayTitle = `${func} group (${taskId.slice(-8)})`;
+                            } else if (taskId.includes('custom-')) {
+                                displayTitle = `Custom ${taskId.slice(-8)}`;
+                            } else if (taskId.includes('_')) {
+                                const parts = taskId.split('_');
+                                if (parts.length > 2 && /^[0-9a-f]{8}$/i.test(parts[parts.length-1])) {
+                                    displayTitle = `${parts[0]} ${parts.slice(1, -1).join('_')}`;
+                                } else if (parts.length > 1) {
+                                    displayTitle = `${parts[0]} ${parts.slice(1).join('_')}`;
+                                } else {
+                                    displayTitle = taskId;
+                                }
+                            }
+                            createLogTab(matchedJobId, displayTitle);
+                        }
+                        let cleanLine = line.replace(/^\[[^\]]+\]\s*/, '').trim();
+                        if (!window.seenLinesPerJob[matchedJobId]) window.seenLinesPerJob[matchedJobId] = new Set();
+                        if (window.seenLinesPerJob[matchedJobId].has(cleanLine)) return;
+                        window.seenLinesPerJob[matchedJobId].add(cleanLine);
+                        if (!window.logBuffers[matchedJobId]) window.logBuffers[matchedJobId] = '';
+                        window.logBuffers[matchedJobId] += cleanLine + '\n';
+                        if (window.activeJobId === matchedJobId) {
+                            const output = document.getElementById('log-output');
+                            const fullClean = window.logBuffers[matchedJobId];
+                            if (fullClean.includes('<h3') || fullClean.includes('<table') || fullClean.includes('<tr') || fullClean.includes('<tbody')) {
+                                output.innerHTML = fullClean;
+                            } else {
+                                output.textContent = fullClean;
+                            }
+                            output.scrollTop = output.scrollHeight;
+                        }
+                        const tabs = document.querySelectorAll('.log-tab');
+                        tabs.forEach(tab => {
+                            if (tab.dataset.jobId === matchedJobId) {
+                                tab.classList.remove('running', 'success', 'error');
+                                if (status === 'running') tab.classList.add('running');
+                                else if (status === 'success') tab.classList.add('success');
+                                else if (status === 'error') tab.classList.add('error');
+                            }
+                        });
+                    });
+                });
+                if (DEBUG_MODE) {
+                    console.log('%c✅ setup_environment.html v1.80 – ENHANCED DROPDOWN FIX + NO-OUTPUT WARNING', 'color:#10b981; font-weight:bold');
+                }
+            }
+        }
+        function renderRawDebug() {
+            if (!DEBUG_MODE) return;
+            const container = document.getElementById('raw-debug');
+            let html = '';
+            window.rawDebugLines.forEach(line => {
+                let cls = 'raw-debug-line';
+                if (line.includes('"task_id": "debug"')) cls += ' debug';
+                else if (line.includes('discover_dbmachine') || line.includes('setup_exascale_monitoring') || line.includes('copy_latest_patches')) cls += ' global';
+                else if (line.includes('error') || line.includes('WARNING')) cls += ' error';
+                html += `<div class="${cls}">${line}</div>`;
+            });
+            container.innerHTML = html;
+            container.scrollTop = 0;
+        }
+        function filterRawDebug(value) {
+            if (!DEBUG_MODE) return;
+            value = value.toLowerCase().trim();
+            const container = document.getElementById('raw-debug');
+            const lines = container.querySelectorAll('.raw-debug-line');
+            lines.forEach(l => {
+                l.style.display = l.textContent.toLowerCase().includes(value) ? 'block' : 'none';
+            });
+        }
+        function clearRawDebug() {
+            if (!DEBUG_MODE) return;
+            window.rawDebugLines = [];
+            window.seenLinesPerJob = {};
+            renderRawDebug();
+        }
+        function copyRawDebug() {
+            if (!DEBUG_MODE) return;
+            const text = window.rawDebugLines.join('\n');
+            navigator.clipboard.writeText(text).then(() => {
+                const btns = document.querySelectorAll('.raw-debug-controls button');
+                const orig = btns[1].innerHTML;
+                btns[1].innerHTML = '✅ Copied!';
+                setTimeout(() => btns[1].innerHTML = orig, 1500);
+            });
+        }
+        function liveFilter(value) {
+            value = value.toLowerCase().trim();
+            const rows = document.querySelectorAll('.component-table tbody tr');
+            rows.forEach(row => {
+                const hostnameCell = row.querySelector('.hostname-cell');
+                if (!hostnameCell) return;
+                const hostname = hostnameCell.textContent.toLowerCase();
+                row.style.display = hostname.includes(value) ? '' : 'none';
+            });
+        }
+        function toggleComponentCheckboxes(checkbox, type) {
+            const checked = checkbox.checked;
+            const table = checkbox.closest('table');
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                if (row.style.display !== 'none') {
+                    const cb = row.querySelector('input[name="component_names"]');
+                    if (cb) cb.checked = checked;
+                }
+            });
+        }
+        function toggleGlobalFunctions(header) {
+            const content = header.nextElementSibling;
+            const arrow = header.querySelector('span');
+            const isOpening = (content.style.display === 'none' || content.style.display === '');
+            content.style.display = isOpening ? 'block' : 'none';
+            arrow.textContent = content.style.display === 'block' ? '▼' : '▶';
+            // v1.80: Re-populate series if opening and still default
+            if (isOpening) {
+                const seriesSel = document.getElementById('global-series-select');
+                if (seriesSel && seriesSel.options.length <= 1) {
+                    populateSeriesDropdown();
+                }
+            }
+        }
+        function toggleCustomShell(header) {
+            const content = header.nextElementSibling;
+            const arrow = header.querySelector('span');
+            content.style.display = (content.style.display === 'none' || content.style.display === '') ? 'block' : 'none';
+            arrow.textContent = content.style.display === 'block' ? '▼' : '▶';
+        }
+        function populateSeriesDropdown() {
+            const select = document.getElementById('global-series-select');
+            if (!select) {
+                console.error('[v1.80] global-series-select element not found in DOM');
+                return;
+            }
+            console.log('[v1.80] populateSeriesDropdown() called – fetching /setup/api/series');
+            select.innerHTML = `<option value="">-- Loading series... --</option>`;
+            fetch('/setup/api/series')
+                .then(r => {
+                    console.log('[v1.80] Series fetch status:', r.status, r.ok);
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                    return r.json();
+                })
+                .then(data => {
+                    console.log('[v1.80] Series data received:', data);
+                    select.innerHTML = `<option value="">-- Select Series --</option>`;
+                    const seriesList = data.series || (Array.isArray(data) ? data : []);
+                    if (seriesList.length === 0) {
+                        const opt = document.createElement('option');
+                        opt.value = '';
+                        opt.textContent = '-- No series returned (check backend /setup/api/series) --';
+                        select.appendChild(opt);
+                    } else {
+                        seriesList.forEach(s => {
+                            const opt = document.createElement('option');
+                            opt.value = s;
+                            opt.textContent = s;
+                            select.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(err => {
+                    console.error('[v1.80] Failed to load series:', err);
+                    select.innerHTML = `<option value="">-- Error loading series: ${err.message || 'API unreachable'} --</option>`;
+                });
+        }
+        function loadLabelsForSeries(series) {
+            console.log('[v1.80] loadLabelsForSeries called with series:', series);
+            const labelSelect = document.getElementById('global-label-select');
+            if (!labelSelect) return;
+            if (!series) {
+                labelSelect.innerHTML = `<option value="">-- Select Label (choose Series first) --</option>`;
+                return;
+            }
+            labelSelect.innerHTML = `<option value="">-- Loading labels... --</option>`;
+            fetch(`/setup/api/labels?series=${encodeURIComponent(series)}`)
+                .then(r => {
+                    console.log('[v1.80] Labels fetch status for', series, ':', r.status);
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                    return r.json();
+                })
+                .then(data => {
+                    console.log('[v1.80] Labels data received:', data);
+                    labelSelect.innerHTML = `<option value="">-- Select Label --</option>`;
+                    const labels = data.labels || (Array.isArray(data) ? data : []);
+                    if (labels.length === 0) {
+                        const opt = document.createElement('option');
+                        opt.value = '';
+                        opt.textContent = '-- No labels found for this series --';
+                        labelSelect.appendChild(opt);
+                    } else {
+                        labels.forEach(l => {
+                            const opt = document.createElement('option');
+                            opt.value = l;
+                            opt.textContent = l;
+                            labelSelect.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(err => {
+                    console.error('[v1.80] Failed to load labels for', series, ':', err);
+                    labelSelect.innerHTML = `<option value="">-- Error loading labels: ${err.message || 'Check console'} --</option>`;
+                });
+        }
+        function createLogTab(jobId, title) {
+            if (window.logBuffers[jobId]) return;
+            const tabsContainer = document.getElementById('log-tabs');
+            const tab = document.createElement('div');
+            tab.className = 'log-tab running active';
+            tab.innerHTML = `${title} <span class="close" onclick="event.stopImmediatePropagation(); closeTab('${jobId}');">×</span>`;
+            tab.dataset.jobId = jobId;
+            tab.onclick = (e) => {
+                if (e.target.classList.contains('close')) return;
+                setActiveTab(jobId);
+            };
+            tabsContainer.appendChild(tab);
+            window.logBuffers[jobId] = '';
+            if (!window.seenLinesPerJob[jobId]) window.seenLinesPerJob[jobId] = new Set();
+            window.activeJobId = jobId;
+            return tab;
+        }
+        function setActiveTab(jobId) {
+            window.activeJobId = jobId;
+            const output = document.getElementById('log-output');
+            let fullClean = window.logBuffers[jobId] || 'No logs yet for this tab.<br>';
+            const standardNoOutput = fullClean.includes('Starting ') && fullClean.includes('Executing SCL:') && fullClean.includes('Command completed (no output)') && fullClean.includes('Completed successfully');
+            if (standardNoOutput && !fullClean.includes('⚠️ IMPORTANT')) {
+                fullClean += '\n\n⚠️ IMPORTANT: Script returned NO OUTPUT\nThis is NOT a frontend problem.\nThe backend reported "Completed successfully" but captured zero lines from the SCL.\n\nPossible causes:\n• The SCL ran but produced no stdout/stderr\n• The execution wrapper on the backend did not capture cellcli output\n• The function requires specific parameters or pre-conditions that were not met\n\nACTION REQUIRED:\n1. Log into the target cell (e.g. scaqal02celadm01) as root or celladmin\n2. Verify the change manually:\n   - create_celladministrator → cellcli list celladmin\n   - set_ms_configuration → cellcli list cell\n3. Check backend logs: /var/log/maa/ or journalctl -u maa_unified_app\n4. If the change is missing, the SCL did NOT execute — backend team needs to investigate the execution path for Storage_Server SCL functions.\n';
+            }
+            if (fullClean.includes('<h3') || fullClean.includes('<table') || fullClean.includes('<tr') || fullClean.includes('<tbody')) {
+                output.innerHTML = fullClean;
+            } else {
+                output.textContent = fullClean;
+            }
+            output.scrollTop = output.scrollHeight;
+            document.querySelectorAll('.log-tab').forEach(t => t.classList.toggle('active', t.dataset.jobId === jobId));
+        }
+        function closeTab(jobId) {
+            delete window.logBuffers[jobId];
+            delete window.seenLinesPerJob[jobId];
+            const tab = document.querySelector(`.log-tab[data-job-id="${jobId}"]`);
+            if (tab) tab.remove();
+            const remaining = document.querySelector('.log-tab');
+            if (remaining) {
+                setActiveTab(remaining.dataset.jobId);
+            } else {
+                window.activeJobId = null;
+                document.getElementById('log-output').innerHTML = 'All tabs closed.<br>';
+            }
+        }
+        function clearAllCheckboxes() {
+            document.querySelectorAll('input[name="component_names"]').forEach(cb => { cb.checked = false; });
+            document.querySelectorAll('.function-checkbox').forEach(cb => { cb.checked = false; });
+        }
+        function runSelectedFunctions(e) {
+            if (e) e.preventDefault();
+            const selectedComponents = Array.from(document.querySelectorAll('input[name="component_names"]:checked')).map(cb => cb.value);
+            console.log('%c[v1.80] Selected components sent to backend:', 'color:#10b981; font-weight:bold', selectedComponents);
+            const selectedByType = {};
+            document.querySelectorAll('input[name^="functions_"]:checked').forEach(cb => {
+                const type = cb.getAttribute('data-type') || 'Global';
+                if (!selectedByType[type]) selectedByType[type] = [];
+                selectedByType[type].push(cb.value);
+            });
+            if (Object.keys(selectedByType).length === 0) {
+                alert('⚠️ Please select at least one function.');
+                return;
+            }
+            const nonGlobalTypes = Object.keys(selectedByType).filter(t => t !== 'Global');
+            if (nonGlobalTypes.length > 1) {
+                alert('⚠️ ERROR: You cannot run functions from multiple different component types at the same time.\n\nSelected types: ' + nonGlobalTypes.join(', ') + '\n\nPlease run one non-Global type at a time.\n(Global functions can still be combined with any single non-Global type.)');
+                return;
+            }
+            const params = {};
+            document.querySelectorAll('input[name^="params_"], select[name^="params_"]').forEach(el => {
+                if (el.value) params[el.name] = el.value;
+            });
+            document.getElementById('log-output').innerHTML = '🚀 Execution started<br>';
+            const types = Object.keys(selectedByType);
+            let delay = 0;
+            types.forEach(type => {
+                const funcs = selectedByType[type];
+                let componentsToSend = selectedComponents;
+                if (funcs.includes('discover_dbmachine')) {
+                    if (selectedComponents.length === 0) {
+                        alert('⚠️ Please select at least one component (DB server / compute node) to use as seed for discover_dbmachine.');
+                        return;
+                    }
+                    componentsToSend = selectedComponents;
+                }
+                if (type !== 'Global' && !funcs.includes('discover_dbmachine') && componentsToSend.length === 0) {
+                    alert('⚠️ Please select at least one component for ' + type + ' functions.');
+                    return;
+                }
+                const isPatchingFunction = funcs.some(f => ['patch_database', 'patch_guest', 'patch_storage'].includes(f));
+                if (type !== 'Global' && !isPatchingFunction) {
+                    componentsToSend.forEach((host, idx) => {
+                        setTimeout(() => {
+                            const perHostPayload = {
+                                components: [host],
+                                functions_per_type: { [type]: funcs },
+                                params: params
+                            };
+                            if (socket) {
+                                socket.emit('run_functions', perHostPayload);
+                            }
+                        }, delay + (idx * 40));
+                    });
+                    return;
+                }
+                if (type === 'Global') {
+                    console.log('%c[v1.80] Pure Global functions detected – waiting for backend task_id', 'color:#10b981');
+                }
+                setTimeout(() => {
+                    const payload = {
+                        components: componentsToSend,
+                        functions_per_type: { [type]: funcs },
+                        params: params
+                    };
+                    console.log('%c[v1.80] Sending payload to backend:', 'color:#10b981; font-weight:bold', payload);
+                    if (socket) {
+                        socket.emit('run_functions', payload);
+                        const output = document.getElementById('log-output');
+                        output.innerHTML += `✅ Emitted to Socket.IO handler for ${type}<br>`;
+                    }
+                }, delay);
+                delay += 50;
+            });
+            clearAllCheckboxes();
+            const output = document.getElementById('log-output');
+            output.scrollTop = output.scrollHeight;
+        }
+        function runCustomCommand(ctype) {
+            const cmd = document.getElementById(`custom_cmd_${ctype.replace(/ /g, '_')}`).value.trim();
+            if (!cmd) {
+                alert('⚠️ Please enter a command');
+                return;
+            }
+            const selectedComponents = Array.from(document.querySelectorAll(`input[name="component_names"]:checked`)).map(cb => cb.value);
+            if (selectedComponents.length === 0) {
+                alert('⚠️ Select at least one host for the custom command');
+                return;
+            }
+            const jobId = `custom-${ctype.replace(/ /g, '_')}-${Date.now()}`;
+            const title = `Custom ${ctype} ${jobId.slice(-6)}`;
+            createLogTab(jobId, title);
+            const output = document.getElementById('log-output');
+            output.innerHTML = `🔧 Custom command started on ${selectedComponents.length} hosts<br>Command: ${cmd}<br><br>`;
+            if (socket) {
+                socket.emit('run_custom_command', {
+                    task_id: jobId,
+                    ctype: ctype,
+                    cmd: cmd,
+                    components: selectedComponents
+                });
+                output.innerHTML += `✅ Emitted to Socket.IO handler (run_custom_command)<br>`;
+            } else {
+                output.innerHTML += `❌ Socket.IO not connected<br>`;
+            }
+            output.scrollTop = output.scrollHeight;
+            clearAllCheckboxes();
+        }
+        function clearCompletedTabs() {
+            const tabs = document.querySelectorAll('.log-tab');
+            tabs.forEach(tab => {
+                if (tab.classList.contains('success') || tab.classList.contains('error')) {
+                    const jobId = tab.dataset.jobId;
+                    delete window.logBuffers[jobId];
+                    delete window.seenLinesPerJob[jobId];
+                    tab.remove();
+                }
+            });
+            if (document.querySelectorAll('.log-tab').length === 0) {
+                window.activeJobId = null;
+                document.getElementById('log-output').innerHTML = 'All completed tabs cleared.<br>';
+            }
+        }
+        function showUploadModal() {
+            alert('📤 Upload New Script modal would open here (admin only)');
+        }
+        window.onload = function() {
+            initSocket();
+            populateSeriesDropdown();
+            if (DEBUG_MODE) {
+                console.log('%c✅ setup_environment.html v1.80 – ENHANCED DROPDOWN FIX + NO-OUTPUT WARNING (all tabs now update)', 'color:#10b981; font-size:16px; font-weight:bold');
+            } else {
+                console.log('%c✅ setup_environment.html v1.80 – DEBUG_MODE disabled', 'color:#10b981; font-size:16px; font-weight:bold');
+            }
+        };
+    </script>
+</div>
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+<script src="{{ url_for('static', filename='socket.io.js') }}"></script>
+{% endblock %}

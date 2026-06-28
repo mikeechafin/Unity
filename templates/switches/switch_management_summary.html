@@ -1,0 +1,128 @@
+<!-- Version: 2026-04-04 v1.19 -->
+<!-- Changes: Table wrapper max-height increased 20% (660px → 792px) so ~20 rows are visible before scrolling. Column header text color changed to #f1f5f9 (softer, higher-contrast white) + !important enforcement to exactly match other dark pages (allocations/user-mgmt/jobs/agent) and fix readability on dark background. -->
+{% extends "base.html" %}
+
+{% block title %}Switch Management Summary{% endblock %}
+{% block page_title %}SWITCH MANAGEMENT SUMMARY{% endblock %}
+
+{% block content %}
+<div class="setup-container" style="padding-bottom: 140px;">
+
+    <form method="get" action="{{ url_for('switches.switch_index') }}" class="filter-form" style="margin-bottom:28px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <input type="text" name="hostname" value="{{ filters.hostname | default('') }}" placeholder="Filter Hostname..." 
+               style="width:280px; padding:12px 20px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff;" oninput="this.form.submit()">
+        <input type="text" name="switch_type" value="{{ filters.switch_type | default('') }}" placeholder="Filter Switch Type..." 
+               style="width:220px; padding:12px 20px; background:#1f2937; border:1px solid #475569; border-radius:9999px; color:#fff;" oninput="this.form.submit()">
+    </form>
+
+    <!-- Scrollable Table Wrapper -->
+    <div class="table-wrapper" style="max-height:792px; overflow-y:auto; border:1px solid #334155; border-radius:12px; background:#111827; box-shadow:0 4px 15px rgba(0,0,0,0.3);">
+        <table class="component-table" style="width:100%; table-layout:fixed; background:#111827; border-collapse:collapse;">
+            <colgroup>
+                <col style="width:180px;">
+                <col style="width:120px;">
+                <col style="width:140px;">
+                <col style="width:120px;">
+                <col style="width:160px;">
+                <col style="width:110px;">
+                <col style="width:100px;">
+                <col style="width:100px;">
+                <col style="width:130px;">
+                <col style="width:100px;">
+            </colgroup>
+            <thead style="position:sticky; top:0; z-index:10; background:#0f172a;">
+                <tr style="background:#0f172a; color:#f1f5f9;">
+                    <th style="padding:18px 24px; text-align:left;">Hostname</th>
+                    <th style="padding:18px 24px; text-align:left;">Switch Type</th>
+                    <th style="padding:18px 24px; text-align:left;">Model</th>
+                    <th style="padding:18px 24px; text-align:left;">Version</th>
+                    <th style="padding:18px 24px; text-align:left;">Serial Number</th>
+                    <th style="padding:18px 24px; text-align:left;">Production ASR</th>
+                    <th style="padding:18px 24px; text-align:left;">IPv4 ASR</th>
+                    <th style="padding:18px 24px; text-align:left;">IPv6 ASR</th>
+                    <th style="padding:18px 24px; text-align:center;">ACTIVE SNMP SUBS</th>
+                    <th style="padding:18px 24px; text-align:center;">SNMP Users</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for switch in switches %}
+                <tr style="background:#1f2937; color:#e2e8f0; border-bottom:1px solid #334155;">
+                    <td style="padding:20px 24px; font-weight:500;"><a href="{{ url_for('switches.switch_detail', hostname=switch[0]) }}" style="color:#60a5fa;">{{ switch[0] }}</a></td>
+                    <td style="padding:20px 24px;">{{ switch[1] }}</td>
+                    <td style="padding:20px 24px;">{{ switch[7] }}</td>
+                    <td style="padding:20px 24px;">{{ switch[8] }}</td>
+                    <td style="padding:20px 24px;">{{ switch[9] }}</td>
+                    <td style="padding:20px 24px; color:{% if switch[2] == 'Yes' %}#10b981{% else %}#e2e8f0{% endif %}; font-weight:600;">{{ switch[2] }}</td>
+                    <td style="padding:20px 24px; color:{% if switch[3] == 'Yes' %}#10b981{% else %}#e2e8f0{% endif %}; font-weight:600;">{{ switch[3] }}</td>
+                    <td style="padding:20px 24px; color:{% if switch[4] == 'Yes' %}#10b981{% else %}#e2e8f0{% endif %}; font-weight:600;">{{ switch[4] }}</td>
+                    <td style="padding:20px 24px; text-align:center; color:{% if switch[5] >= 15 %}#10b981{% else %}#e2e8f0{% endif %}; font-weight:600;">{{ switch[5] }}</td>
+                    <td style="padding:20px 24px; text-align:center;">{{ switch[6] }}</td>
+                </tr>
+                {% endfor %}
+                {% if not switches %}
+                <tr>
+                    <td colspan="10" style="padding:60px; text-align:center; color:#64748b;">No switches found.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if summary and summary.total_switches > 0 %}
+    <div style="margin-top:32px; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:20px;">
+        <div style="background:#1f2937; padding:24px; border-radius:16px; text-align:center;">
+            <div style="color:#64748b; font-size:13px;">TOTAL SWITCHES</div>
+            <div style="font-size:32px; font-weight:700; color:#fff;">{{ summary.total_switches }}</div>
+        </div>
+        <div style="background:#1f2937; padding:24px; border-radius:16px; text-align:center;">
+            <div style="color:#64748b; font-size:13px;">PRODUCTION ASR ENABLED</div>
+            <div style="font-size:32px; font-weight:700; color:#10b981;">{{ summary.production_asr_yes }}</div>
+        </div>
+        <div style="background:#1f2937; padding:24px; border-radius:16px; text-align:center;">
+            <div style="color:#64748b; font-size:13px;">IPv4 ASR ENABLED</div>
+            <div style="font-size:32px; font-weight:700; color:#10b981;">{{ summary.ipv4_asr_yes }}</div>
+        </div>
+        <div style="background:#1f2937; padding:24px; border-radius:16px; text-align:center;">
+            <div style="color:#64748b; font-size:13px;">IPv6 ASR ENABLED</div>
+            <div style="font-size:32px; font-weight:700; color:#10b981;">{{ summary.ipv6_asr_yes }}</div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Floating Green Ball FAB -->
+<button onclick="toggleFabMenu()" class="fab-button"
+        style="position:fixed; bottom:120px; right:40px; width:64px; height:64px; background:#10b981; border:none; border-radius:9999px; color:#fff; font-size:28px; box-shadow:0 10px 30px rgba(16,185,129,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; cursor:pointer;">
+    +
+</button>
+
+<!-- FAB Menu -->
+<div id="fabMenu" style="display:none; position:fixed; bottom:200px; right:40px; background:#1f2937; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; min-width:200px; z-index:1001;">
+    <a onclick="location.reload(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">⟳ Refresh Now</a>
+</div>
+
+<script>
+function toggleFabMenu() {
+    const menu = document.getElementById('fabMenu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+    const fabMenu = document.getElementById('fabMenu');
+    if (fabMenu.style.display === 'block' && !e.target.closest('.fab-button') && !e.target.closest('#fabMenu')) {
+        fabMenu.style.display = 'none';
+    }
+});
+</script>
+
+<style>
+.fab-button:hover { transform: scale(1.1); }
+#fabMenu a { display:block; padding:14px 24px; color:#fff; text-decoration:none; }
+#fabMenu a:hover { background:#334155; }
+.component-table th, .component-table td { padding:18px 24px; border-bottom:1px solid #334155; }
+.component-table tr:hover { background:#1e2937 !important; }
+.component-table th { background:#0f172a !important; color:#f1f5f9 !important; font-weight:600; }
+.table-wrapper::-webkit-scrollbar { width:8px; height:8px; }
+.table-wrapper::-webkit-scrollbar-thumb { background:#475569; border-radius:4px; }
+.table-wrapper::-webkit-scrollbar-track { background:#1f2937; }
+</style>
+{% endblock %}

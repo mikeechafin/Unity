@@ -1,0 +1,211 @@
+<!-- Version: 2026-03-27 v1.16 -->
+<!-- Changes: Added table-layout:fixed + colgroup with wide Username column (420px) and Role column (170px) to permanently prevent ADMIN label overlap. Username cell uses nowrap + ellipsis. All existing modern styling (icon, flex, colors, responsive) kept intact. Banners are handled in base.html (not modified here). -->
+{% extends "base.html" %}
+{% block page_title %}User Management{% endblock %}
+{% block content %}
+<div class="setup-container">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="margin:0; font-size:28px; color:#fff; display:flex; align-items:center; gap:12px;">
+            👥 
+            <span style="font-size:14px; background:#10b981; color:#fff; padding:4px 12px; border-radius:9999px; font-weight:600;">Admin Only</span>
+        </h2>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <input type="text" id="userSearch" placeholder="Search users..."
+                   onkeyup="filterUsers()"
+                   style="width:320px; padding:14px 20px 14px 48px; background:#1f2937; border:1px solid #334155; border-radius:9999px; color:#fff; font-size:15px; outline:none;">
+            <button onclick="showAddUserModal()"
+                    class="back-button"
+                    style="background:#10b981; color:#fff; display:flex; align-items:center; gap:8px; padding:14px 24px; border-radius:9999px; font-weight:600;">
+                <span style="font-size:20px; line-height:1;">+</span> Add New User
+            </button>
+        </div>
+    </div>
+
+    <table class="component-table" style="width:100%; border-collapse:collapse; background:#1f2937; border-radius:16px; overflow:hidden; table-layout:fixed;">
+        <colgroup>
+            <col style="width:420px;">
+            <col style="width:170px;">
+            <col style="width:110px;">
+            <col style="width:150px;">
+            <col style="width:160px;">
+            <col style="width:160px;">
+        </colgroup>
+        <thead>
+            <tr style="background:#0f172a;">
+                <th style="padding:18px 24px; text-align:left; font-size:13px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Username</th>
+                <th style="padding:18px 24px; text-align:left; font-size:13px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Role</th>
+                <th style="padding:18px 24px; text-align:left; font-size:13px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Status</th>
+                <th style="padding:18px 24px; text-align:left; font-size:13px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Created</th>
+                <th style="padding:18px 24px; text-align:left; font-size:13px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Last Login</th>
+                <th style="padding:18px 24px; text-align:right; font-size:13px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="usersTableBody">
+            {% for u in users_data %}
+            <tr style="transition:all 0.2s ease; border-bottom:1px solid #334155;">
+                <td style="padding:20px 24px; color:#e2e8f0; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="width:40px; height:40px; background:#6366f1; border-radius:9999px; display:flex; align-items:center; justify-content:center; font-size:22px; color:#fff; flex-shrink:0;">👤</div>
+                        <div style="min-width:0;">
+                            <div style="font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ u[0] }}</div>
+                            <div style="font-size:13px; color:#64748b;">{{ u[0] | lower }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="padding:20px 24px;">
+                    {% if u[1] == 'admin' %}
+                        <span style="background:#ef4444; color:#fff; padding:6px 16px; border-radius:9999px; font-size:13px; font-weight:600; white-space:nowrap;">ADMIN</span>
+                    {% elif u[1] == 'operator' %}
+                        <span style="background:#f59e0b; color:#fff; padding:6px 16px; border-radius:9999px; font-size:13px; font-weight:600; white-space:nowrap;">OPERATOR</span>
+                    {% else %}
+                        <span style="background:#64748b; color:#fff; padding:6px 16px; border-radius:9999px; font-size:13px; font-weight:600; white-space:nowrap;">VIEWER</span>
+                    {% endif %}
+                </td>
+                <td style="padding:20px 24px;">
+                    {% if u[2] == 'Y' %}
+                        <span style="background:#10b981; color:#fff; padding:6px 16px; border-radius:9999px; font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;">
+                            <span style="display:inline-block; width:8px; height:8px; background:#fff; border-radius:50%; animation:pulse 2s infinite;"></span>
+                            Active
+                        </span>
+                    {% else %}
+                        <span style="background:#64748b; color:#fff; padding:6px 16px; border-radius:9999px; font-size:13px; font-weight:600; white-space:nowrap;">Inactive</span>
+                    {% endif %}
+                </td>
+                <td style="padding:20px 24px; color:#cbd5e1; font-size:14px;">{{ u[3] }}</td>
+                <td style="padding:20px 24px; color:#cbd5e1; font-size:14px;">{{ u[4] or 'Never' }}</td>
+                <td style="padding:20px 24px; text-align:right;">
+                    <div style="display:flex; gap:8px; justify-content:flex-end;">
+                        <button onclick="editUser('{{ u[0] }}', '{{ u[1] }}', '{{ u[2] }}')"
+                                style="background:#334155; color:#e2e8f0; border:none; padding:8px 16px; border-radius:9999px; font-size:13px; cursor:pointer; transition:all 0.2s;">✏️ Edit</button>
+                        <button onclick="resetPassword('{{ u[0] }}')"
+                                style="background:#f59e0b; color:#fff; border:none; padding:8px 16px; border-radius:9999px; font-size:13px; cursor:pointer; transition:all 0.2s;">🔑 Reset</button>
+                        <button onclick="deleteUser('{{ u[0] }}')"
+                                style="background:#ef4444; color:#fff; border:none; padding:8px 16px; border-radius:9999px; font-size:13px; cursor:pointer; transition:all 0.2s;">🗑️ Delete</button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top:24px; display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#64748b;">
+        <div>{{ users_data|length }} users • All synced with Oracle Database</div>
+        <button onclick="refreshUsers()" style="background:#334155; color:#e2e8f0; border:none; padding:10px 20px; border-radius:9999px; cursor:pointer;">⟳ Refresh Table</button>
+    </div>
+</div>
+<!-- Add User Modal -->
+<div id="addModal" onclick="if(event.target.id==='addModal')hideAddUserModal()"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;">
+    <div onclick="event.stopImmediatePropagation()"
+         style="background:#1f2937; width:100%; max-width:460px; border-radius:20px; padding:32px; box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.4);">
+        <h3 style="margin:0 0 8px; font-size:24px; color:#fff;">Create New Oracle User</h3>
+        <p style="margin:0 0 24px; color:#94a3b8;">This will create a real database account and send a welcome email.</p>
+        <form id="addUserForm" method="POST" action="/users">
+            <input type="hidden" name="action" value="add">
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Email Address (Oracle Username)</label>
+                <input type="email" name="username" id="new_username" placeholder="user@oracle.com" required
+                       style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px; outline:none;">
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Initial Password</label>
+                <input type="password" name="password" id="new_password" placeholder="Temporary password" required autocomplete="new-password"
+                       style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px; outline:none;">
+            </div>
+            <div style="margin-bottom:32px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Role</label>
+                <select name="role" style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px; outline:none;">
+                    <option value="viewer">Viewer</option>
+                    <option value="operator" selected>Operator</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button type="button" onclick="hideAddUserModal()"
+                        style="flex:1; padding:16px; background:#334155; color:#e2e8f0; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Cancel</button>
+                <button type="submit"
+                        style="flex:1; padding:16px; background:#10b981; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Create User</button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- Reset Password Modal -->
+<div id="resetModal" onclick="if(event.target.id==='resetModal')hideResetModal()"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;">
+    <div onclick="event.stopImmediatePropagation()"
+         style="background:#1f2937; width:100%; max-width:420px; border-radius:20px; padding:32px; box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.4);">
+        <h3 style="margin:0 0 8px; font-size:24px; color:#fff;">Reset Password</h3>
+        <p id="resetUserDisplay" style="margin:0 0 24px; color:#94a3b8;"></p>
+        <form id="resetForm" method="POST" action="/users">
+            <input type="hidden" name="action" value="reset_password">
+            <input type="hidden" name="username" id="reset_username">
+            <div style="margin-bottom:32px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">New Temporary Password</label>
+                <input type="password" name="new_password" id="reset_new_password" placeholder="Enter new password" required autocomplete="new-password"
+                       style="width:100%; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px; outline:none;">
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button type="button" onclick="hideResetModal()"
+                        style="flex:1; padding:16px; background:#334155; color:#e2e8f0; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Cancel</button>
+                <button type="submit"
+                        style="flex:1; padding:16px; background:#f59e0b; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Reset Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function showAddUserModal() {
+    document.getElementById('addModal').style.display = 'flex';
+}
+function hideAddUserModal() {
+    document.getElementById('addModal').style.display = 'none';
+}
+function resetPassword(username) {
+    document.getElementById('reset_username').value = username;
+    document.getElementById('resetUserDisplay').innerHTML = `<strong>${username}</strong>`;
+    document.getElementById('resetModal').style.display = 'flex';
+}
+function hideResetModal() {
+    document.getElementById('resetModal').style.display = 'none';
+}
+function deleteUser(username) {
+    if (username === 'maamd') {
+        alert("Cannot delete the maamd superuser.");
+        return;
+    }
+    if (confirm(`Delete Oracle user "${username}" and all associated data permanently?`)) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/users';
+        form.innerHTML = `
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="username" value="${username}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+function editUser(username, role, active) {
+    alert(`Edit functionality for ${username} coming in next update.\n\nCurrent: Role=${role}, Active=${active}`);
+}
+function filterUsers() {
+    const term = document.getElementById('userSearch').value.toLowerCase().trim();
+    const rows = document.querySelectorAll('#usersTableBody tr');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(term) ? '' : 'none';
+    });
+}
+function refreshUsers() {
+    location.reload();
+}
+// Close modals with ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const addModal = document.getElementById('addModal');
+        const resetModal = document.getElementById('resetModal');
+        if (addModal && addModal.style.display === 'flex') hideAddUserModal();
+        if (resetModal && resetModal.style.display === 'flex') hideResetModal();
+    }
+});
+</script>
+{% endblock %}

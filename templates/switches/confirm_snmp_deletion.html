@@ -1,0 +1,72 @@
+<!-- Version: 2026-04-04 v1.20 -->
+<!-- Changes: Migrated to new dark unified format matching switch_management_summary.html + allocations.html (setup-container, modern dark confirmation UI, green FAB ball in bottom-right with Refresh + Back actions). All original logic and pre block preserved. -->
+{% extends "base.html" %}
+{% block title %}Confirm SNMP Deletion - {{ hostname }}{% endblock %}
+{% block page_title %}CONFIRM SNMP DELETION - {{ hostname }}{% endblock %}
+
+{% block content %}
+<div class="setup-container" style="padding-bottom: 140px; max-width:720px; margin:0 auto;">
+
+    <!-- Flash Messages -->
+    <div class="flash-messages" style="margin-bottom:20px;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}" style="padding:12px 20px; border-radius:8px; margin-bottom:12px; color:#fff; {% if category == 'success' %}background:#10b981;{% elif category == 'error' %}background:#ef4444;{% else %}background:#334155;{% endif %}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <div style="background:#1f2937; padding:40px; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.4);">
+        <h2 style="margin:0 0 20px; font-size:24px; color:#fff;">Confirm SNMP Host Deletion</h2>
+        
+        <p style="color:#e2e8f0; margin-bottom:16px;">The SNMP host configuration on the switch does not match the expected configuration for Alert ID <strong>{{ alert_id }}</strong>.</p>
+        
+        <p style="color:#f1f5f9; font-weight:600; margin-bottom:8px;">Actual Configuration on Switch:</p>
+        <pre style="background:#0f172a; color:#e2e8f0; padding:20px; border-radius:12px; overflow:auto; max-height:300px; font-family:monospace; white-space:pre-wrap;">{{ switch_config }}</pre>
+        
+        <p style="margin:24px 0; color:#e2e8f0;">Do you want to delete this SNMP host entry from the switch and update the database to the default state?</p>
+
+        <form method="POST" style="display:flex; gap:12px;">
+            <button type="submit" name="confirm" style="flex:1; padding:18px; background:#10b981; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Yes, Delete</button>
+            <button type="submit" name="cancel" style="flex:1; padding:18px; background:#334155; color:#e2e8f0; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">No, Cancel</button>
+        </form>
+
+        <div style="margin-top:32px; text-align:center;">
+            <a href="{{ url_for('switches.switch_detail', hostname=hostname) }}" style="color:#60a5fa; text-decoration:none;">← Back to Switch Detail</a>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Green Ball FAB -->
+<button onclick="toggleFabMenu()" class="fab-button"
+        style="position:fixed; bottom:120px; right:40px; width:64px; height:64px; background:#10b981; border:none; border-radius:9999px; color:#fff; font-size:28px; box-shadow:0 10px 30px rgba(16,185,129,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; cursor:pointer;">
+    +
+</button>
+
+<!-- FAB Menu -->
+<div id="fabMenu" style="display:none; position:fixed; bottom:200px; right:40px; background:#1f2937; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); padding:8px 0; min-width:200px; z-index:1001;">
+    <a onclick="location.reload(); toggleFabMenu()" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">⟳ Refresh Now</a>
+    <a href="{{ url_for('switches.switch_detail', hostname=hostname) }}" style="display:block; padding:14px 24px; color:#fff; text-decoration:none;">← Back to Detail</a>
+</div>
+
+<script>
+function toggleFabMenu() {
+    const menu = document.getElementById('fabMenu');
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+    const fabMenu = document.getElementById('fabMenu');
+    if (fabMenu.style.display === 'block' && !e.target.closest('.fab-button') && !e.target.closest('#fabMenu')) {
+        fabMenu.style.display = 'none';
+    }
+});
+</script>
+
+<style>
+.fab-button:hover { transform: scale(1.1); }
+#fabMenu a { display:block; padding:14px 24px; color:#fff; text-decoration:none; }
+#fabMenu a:hover { background:#334155; }
+</style>
+{% endblock %}
