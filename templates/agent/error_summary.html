@@ -1,0 +1,90 @@
+<!-- Version: 2026-03-29 v1.2.0 -->
+<!-- Changes: Migrated to modern Bootstrap 5 card + tabs + AJAX DataTables layout (exact style used in user management + allocation pages); fingerprint grouping + search/type filter; export button; no legacy popups or old filter row (uses new normalized/fingerprint backend) -->
+{% extends "base.html" %}
+{% block title %}Agent Error Summary{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">OEM Agent Error Console - Fingerprint Grouped View (1000+ Agents Fleet)</h4>
+            <button onclick="exportCSV()" class="btn btn-success">Export CSV</button>
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-tabs mb-3" id="errorTabs">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#allErrors">All Errors</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#byFingerprint">By Fingerprint (Deduplicated)</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#byType">By Error Type</a></li>
+            </ul>
+
+            <div class="tab-content">
+                <div class="tab-pane active" id="allErrors">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <select id="typeFilter" class="form-select">
+                                <option value="">All Types</option>
+                                <option value="CRSEONS_SUBSCRIPTION">CRSeOns Subscription</option>
+                                <option value="INVENTORY_PARSE">Inventory Parse</option>
+                                <option value="ORA_ERROR">ORA Errors</option>
+                                <option value="HTTP_PROBE">HTTP Probes</option>
+                                <option value="HEARTBEAT_TIMEOUT">Heartbeat Timeouts</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <input type="text" id="searchInput" class="form-control" placeholder="Search normalized message or fingerprint...">
+                        </div>
+                    </div>
+                    <table id="errorTable" class="table table-striped table-hover w-100">
+                        <thead>
+                            <tr>
+                                <th>Error Type</th>
+                                <th>Fingerprint</th>
+                                <th>Occurrences (Fleet)</th>
+                                <th>Last Seen</th>
+                                <th>Sample Message</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    var table = $('#errorTable').DataTable({
+        processing: true,
+        serverSide: true,
+        ajax: {
+            url: '/agent/error_summary_data',
+            data: function(d) {
+                d.error_type = $('#typeFilter').val();
+                d.search = $('#searchInput').val();
+            }
+        },
+        columns: [
+            { data: 'error_type' },
+            { data: 'fingerprint' },
+            { data: 'occurrences' },
+            { data: 'last_seen' },
+            { data: 'normalized' },
+            { data: 'detail_url', render: function(url) { 
+                return `<a href="${url}" class="btn btn-sm btn-primary">View Instances</a>`; 
+            }}
+        ],
+        order: [[2, 'desc']],
+        pageLength: 50
+    });
+
+    $('#typeFilter, #searchInput').on('change keyup', function() { 
+        table.ajax.reload(); 
+    });
+});
+
+function exportCSV() {
+    window.location = '/agent/error_summary_data?export=csv';
+}
+</script>
+{% endblock %}

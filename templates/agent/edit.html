@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Ignore String{% endblock %}
+
+{% block page_title %}Edit Ignore String{% endblock %}
+
+{% block content %}
+    <div class="content-wrapper">
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Back Button -->
+        <a href="{{ url_for('agent.manage') }}" class="back-button">Back to Manage Ignore Strings</a>
+
+        <div class="section-title">Edit Ignore String</div>
+        <form method="POST">
+            <label for="hostname">Hostname:</label>
+            <input type="text" id="hostname" name="hostname" value="{{ hostname }}" required>
+            <label for="exclude_string">Exclude String:</label>
+            <input type="text" id="exclude_string" name="exclude_string" value="{{ exclude_string }}" required>
+            <input type="hidden" name="original_hostname" value="{{ hostname }}">
+            <input type="hidden" name="original_exclude_string" value="{{ exclude_string }}">
+            <input type="submit" value="Update" class="action-button">
+        </form>
+    </div>
+{% endblock %}

@@ -1,0 +1,238 @@
+<!-- Filename: templates/access/index.html -->
+<!-- Version: 2026-03-30 v1.36 -->
+<!-- Changes: Removed the duplicate "Access Credentials" text entirely from the header (now ONLY the 🔑 key icon + Secure badge appears in the header as the single title). Search input remains on the right. All modals, table, and FAB unchanged. -->
+{% extends "base.html" %}
+{% block title %}Access Credentials{% endblock %}
+{% block page_title %}Access Credentials{% endblock %}
+{% block content %}
+<div class="setup-container">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <h2 style="margin:0; font-size:28px; color:#fff; display:flex; align-items:center; gap:12px;">
+            <span style="display:flex; align-items:center; gap:3px;">
+                🔑
+                <span style="font-size:14px; background:#6366f1; color:#fff; padding:4px 12px; border-radius:9999px; font-weight:600;">Secure</span>
+            </span>
+        </h2>
+        <input type="text" id="credentialSearch" placeholder="Search credentials..." 
+               onkeyup="filterCredentials()"
+               style="width:320px; padding:14px 20px 14px 48px; background:#1f2937; border:1px solid #334155; border-radius:9999px; color:#fff; font-size:15px; outline:none;">
+    </div>
+
+    <table class="component-table" style="width:100%; border-collapse:collapse; background:#1f2937; border-radius:16px; overflow:hidden; table-layout:fixed;">
+        <colgroup>
+            <col style="width:60px;">
+            <col style="width:180px;">
+            <col style="width:220px;">
+            <col style="width:220px;">
+            <col style="width:280px;">
+        </colgroup>
+        <thead>
+            <tr style="background:#0f172a;">
+                <th style="padding:18px 24px; text-align:center; font-size:13px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Select</th>
+                <th style="padding:18px 24px; text-align:left; font-size:13px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Component Type</th>
+                <th style="padding:18px 24px; text-align:left; font-size:13px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Component Name</th>
+                <th style="padding:18px 24px; text-align:left; font-size:13px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Username</th>
+                <th style="padding:18px 24px; text-align:right; font-size:13px; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:0.5px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="credentialsTableBody">
+            {% for credential in credentials %}
+            <tr style="transition:all 0.2s ease; border-bottom:1px solid #334155;" 
+                data-type="{{ credential[0] }}" 
+                data-name="{{ credential[1] }}" 
+                data-username="{{ credential[2] }}">
+                <td style="padding:20px 24px; text-align:center;">
+                    <input type="checkbox" class="credential-checkbox"
+                           data-type="{{ credential[0] }}"
+                           data-name="{{ credential[1] }}"
+                           data-username="{{ credential[2] }}">
+                </td>
+                <td style="padding:20px 24px;">
+                    <span style="background:#6366f1; color:#fff; padding:6px 16px; border-radius:9999px; font-size:13px; font-weight:600; white-space:nowrap;">
+                        {{ credential[0] }}
+                    </span>
+                </td>
+                <td style="padding:20px 24px; color:#e2e8f0; font-weight:500;">{{ credential[1] }}</td>
+                <td style="padding:20px 24px; color:#e2e8f0; font-family:monospace;">{{ credential[2] }}</td>
+                <td style="padding:20px 24px; text-align:right;">
+                    <div style="display:flex; gap:8px; justify-content:flex-end;">
+                        <button onclick="getCredential('{{ credential[0] }}', '{{ credential[1] }}', '{{ credential[2] }}', 'password')"
+                                style="background:#10b981; color:#fff; border:none; padding:8px 16px; border-radius:9999px; font-size:13px; cursor:pointer; transition:all 0.2s;">🔑 Password</button>
+                        <button onclick="getCredential('{{ credential[0] }}', '{{ credential[1] }}', '{{ credential[2] }}', 'key')"
+                                style="background:#10b981; color:#fff; border:none; padding:8px 16px; border-radius:9999px; font-size:13px; cursor:pointer; transition:all 0.2s;">🔐 Key</button>
+                        <button onclick="openEditCredentialModal('{{ credential[0] }}', '{{ credential[1] }}', '{{ credential[2] }}')"
+                                style="background:#3b82f6; color:#fff; border:none; padding:8px 16px; border-radius:9999px; font-size:13px; cursor:pointer; transition:all 0.2s;">✏️ Edit</button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="margin-top:24px; display:flex; justify-content:space-between; align-items:center; font-size:13px; color:#64748b;">
+        <div id="credentialCount">{{ credentials|length }} credentials • Encrypted in MAAMD.ACCESS_CREDENTIALS</div>
+    </div>
+</div>
+
+<!-- Green Hovering FAB Ball (bottom-right) -->
+<div class="fab" id="fabButton" onclick="toggleFabMenu()">
+    <span style="font-size:32px; line-height:1;">+</span>
+</div>
+
+<!-- FAB Menu -->
+<div id="fabMenu" class="fab-menu">
+    <button onclick="openAddCredentialModal(); toggleFabMenu();" style="background:#10b981;">➕ Add Credential</button>
+    <button onclick="location.reload(); toggleFabMenu();" style="background:#64748b;">⟳ Refresh Table</button>
+    <button onclick="deleteSelectedCredentials(); toggleFabMenu();" style="background:#ef4444;">🗑️ Delete Selected</button>
+</div>
+
+<!-- Add Credential Modal -->
+<div id="addCredentialModal" onclick="if(event.target.id==='addCredentialModal')closeAddCredentialModal()" 
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;">
+    <div onclick="event.stopImmediatePropagation()" 
+         style="background:#1f2937; width:100%; max-width:580px; border-radius:20px; padding:32px; box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.4);">
+        <h3 style="margin:0 0 8px; font-size:24px; color:#fff;">Add New Credential</h3>
+        <form action="{{ url_for('access.add_credential_route') }}" method="post">
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Component Type</label>
+                <select name="component_type" style="width:100%; box-sizing:border-box; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px; outline:none;">
+                    <option value="">Select Type</option>
+                    <option value="GUEST">GUEST</option>
+                    <option value="ILOM">ILOM</option>
+                    <option value="PHYSICAL_HOST">PHYSICAL_HOST</option>
+                    <option value="SWITCH">SWITCH</option>
+                    <option value="KERBEROS">KERBEROS</option>
+                </select>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Component Name</label>
+                <select name="component_name" style="width:100%; box-sizing:border-box; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px; outline:none;">
+                    <option value="default">default</option>
+                    {% for component in components %}
+                        <option value="{{ component[1] }}">{{ component[1] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Username</label>
+                <input type="text" name="username" placeholder="e.g. root / oracle / mchafin" required
+                       style="width:100%; box-sizing:border-box; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px; outline:none;">
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Password</label>
+                <input type="password" name="password" 
+                       style="width:100%; box-sizing:border-box; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px; outline:none;">
+            </div>
+            <div style="margin-bottom:32px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">SSH Key (optional)</label>
+                <textarea name="key" rows="4" placeholder="Paste full private key here..."
+                          style="width:100%; box-sizing:border-box; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:12px; color:#fff; font-size:14px; resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button type="button" onclick="closeAddCredentialModal()" 
+                        style="flex:1; padding:16px; background:#334155; color:#e2e8f0; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Cancel</button>
+                <button type="submit"
+                        style="flex:1; padding:16px; background:#10b981; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Add Credential</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Credential Modal -->
+<div id="editCredentialModal" onclick="if(event.target.id==='editCredentialModal')closeEditCredentialModal()" 
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;">
+    <div onclick="event.stopImmediatePropagation()" 
+         style="background:#1f2937; width:100%; max-width:580px; border-radius:20px; padding:32px; box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.4);">
+        <h3 style="margin:0 0 8px; font-size:24px; color:#fff;">Edit Credential</h3>
+        <form action="{{ url_for('access.update_credential') }}" method="post">
+            <input type="hidden" id="edit_component_type" name="component_type">
+            <input type="hidden" id="edit_component_name" name="component_name">
+            <input type="hidden" id="edit_username" name="username">
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">Password (new)</label>
+                <input type="password" name="password" id="edit_password"
+                       style="width:100%; box-sizing:border-box; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:9999px; color:#fff; font-size:16px; outline:none;">
+            </div>
+            <div style="margin-bottom:32px;">
+                <label style="display:block; margin-bottom:8px; font-size:13px; font-weight:600; color:#64748b;">SSH Key (new)</label>
+                <textarea name="key" id="edit_key" rows="4"
+                          style="width:100%; box-sizing:border-box; padding:16px 20px; background:#334155; border:1px solid #475569; border-radius:12px; color:#fff; font-size:14px; resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex; gap:12px;">
+                <button type="button" onclick="closeEditCredentialModal()" 
+                        style="flex:1; padding:16px; background:#334155; color:#e2e8f0; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Cancel</button>
+                <button type="submit"
+                        style="flex:1; padding:16px; background:#f59e0b; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Update Credential</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Credential Display Modal -->
+<div id="credentialModal" onclick="if(event.target.id==='credentialModal')closeCredentialModal()" 
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center;">
+    <div onclick="event.stopImmediatePropagation()" 
+         style="background:#1f2937; width:100%; max-width:580px; border-radius:20px; padding:32px; box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.4);">
+        <h3 style="margin:0 0 8px; font-size:24px; color:#fff;">Credential Value</h3>
+        <pre id="credentialContent" style="background:#334155; color:#e2e8f0; padding:20px; border-radius:12px; font-family:monospace; font-size:14px; max-height:300px; overflow:auto; white-space:pre-wrap;"></pre>
+        <div style="display:flex; gap:12px; margin-top:20px;">
+            <button onclick="closeCredentialModal()" 
+                    style="flex:1; padding:16px; background:#334155; color:#e2e8f0; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">Close</button>
+            <button onclick="copyToClipboard()" 
+                    style="flex:1; padding:16px; background:#10b981; color:#fff; border:none; border-radius:9999px; font-weight:600; cursor:pointer;">📋 Copy</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.fab {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 64px;
+    height: 64px;
+    background: #10b981;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+    z-index: 9998;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 15px 40px rgba(16, 185, 129, 0.6);
+}
+.fab-menu {
+    display: none;
+    position: fixed;
+    bottom: 110px;
+    right: 30px;
+    background: #1f2937;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    padding: 8px 0;
+    z-index: 9999;
+    min-width: 200px;
+}
+.fab-menu button {
+    width: 100%;
+    text-align: left;
+    padding: 14px 24px;
+    background: none;
+    border: none;
+    color: #e2e8f0;
+    font-size: 15px;
+    cursor: pointer;
+}
+.fab-menu button:hover {
+    background: #334155;
+}
+</style>
+
+<script src="{{ url_for('static', filename='access.js') }}?v=20260330-6"></script>
+{% endblock %}

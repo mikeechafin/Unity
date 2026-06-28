@@ -1,0 +1,68 @@
+<!-- Version: 2026-03-29 v1.2.1
+Changes: Dedicated parser status page with prominent "Run Parser Now" button + status cards + modern styling matching error_summary.html -->
+{% extends "base.html" %}
+{% block title %}Parser Status{% endblock %}
+{% block page_title %}Parser Status{% endblock %}
+{% block content %}
+<div class="content-wrapper">
+    <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="section-title">MAA Agent Log Parser Status</div>
+
+    <div class="row" style="margin-top: 30px;">
+        <!-- Logs Tracked Card -->
+        <div class="col-md-4">
+            <div class="card text-center" style="background:#f8f9fa; border:2px solid #0066cc; border-radius:12px; padding:25px;">
+                <h5 style="color:#0066cc;">Logs Tracked</h5>
+                <h2 style="font-size:3rem; margin:15px 0;">{{ logs_tracked }}</h2>
+                <p style="color:#666;">Agent log files in inventory</p>
+            </div>
+        </div>
+
+        <!-- Unique Errors Card -->
+        <div class="col-md-4">
+            <div class="card text-center" style="background:#f8f9fa; border:2px solid #0066cc; border-radius:12px; padding:25px;">
+                <h5 style="color:#0066cc;">Unique Errors</h5>
+                <h2 style="font-size:3rem; margin:15px 0; color:#d32f2f;">{{ unique_errors }}</h2>
+                <p style="color:#666;">Deduplicated across fleet</p>
+            </div>
+        </div>
+
+        <!-- Last Parsed Card -->
+        <div class="col-md-4">
+            <div class="card text-center" style="background:#f8f9fa; border:2px solid #0066cc; border-radius:12px; padding:25px;">
+                <h5 style="color:#0066cc;">Last Parsed</h5>
+                <h2 style="font-size:2rem; margin:15px 0;">{{ last_parsed.strftime('%Y-%m-%d %H:%M') if last_parsed else 'Never' }}</h2>
+                <p style="color:#666;">UTC • Daily at 02:00</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Run Parser Now Button -->
+    <div style="text-align:center; margin:40px 0;">
+        <form method="POST" action="{{ url_for('agent.run_parser_now') }}">
+            <button type="submit" class="btn btn-success btn-lg" style="padding:18px 50px; font-size:1.4rem; border-radius:12px;">
+                ▶️ Run Parser Now
+            </button>
+        </form>
+        <p style="margin-top:15px; color:#666; font-size:0.95rem;">
+            (Instant collection • Uses latest logs only • Safe to run anytime)
+        </p>
+    </div>
+
+    <!-- Quick Links -->
+    <div style="text-align:center;">
+        <a href="{{ url_for('agent.error_summary') }}" class="action-button" style="font-size:1.1rem; padding:12px 30px;">
+            View Full Error Summary →
+        </a>
+    </div>
+</div>
+{% endblock %}

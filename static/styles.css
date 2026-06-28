@@ -1,0 +1,648 @@
+body {
+  font-family: Arial, sans-serif;
+  background-color: #FFFFFF; /* Restored to white as requested */
+  color: #222222;
+  margin: 0;
+  padding: 0;
+}
+.header {
+  background-color: #FF0000; /* Oracle Red */
+  padding: 10px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #FFFFFF;
+  height: 60px;
+}
+.logo img {
+  height: 40px;
+}
+h1 {
+  font-size: 24px;
+  font-weight: bold;
+  color: #FFFFFF;
+  margin: 0;
+}
+.user-info {
+  font-size: 16px;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.username {
+  margin-right: 10px;
+  color: #FFFFFF;
+}
+.nav-buttons {
+  background-color: #444444;
+  padding: 10px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-start;
+  color: #FFFFFF;
+}
+.nav-buttons button {
+  margin: 5px;
+}
+.container {
+  padding: 20px;
+}
+.flash-messages {
+  margin-bottom: 20px;
+}
+.flash {
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+}
+.flash.success {
+  background-color: #4CAF50;
+  color: white;
+}
+.flash.error {
+  background-color: #f44336;
+  color: white;
+}
+.flash.info {
+  background-color: #2196F3;
+  color: white;
+}
+.flash.warning {
+  background-color: #ff9800;
+  color: white;
+}
+.section-title {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #FFFF00;
+  background-color: #000000;
+  padding: 5px 10px;
+}
+.certification-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #D3D3D3;
+  margin-bottom: 20px;
+}
+.certification-table th,
+.certification-table td {
+  padding: 10px;
+  text-align: left;
+  border: 1px solid #666666;
+  color: #000000;
+}
+.certification-table th {
+  background-color: #C0C0C0;
+  font-weight: bold;
+}
+.certification-table tbody tr:nth-child(even) {
+  background-color: #E6E6E6;
+}
+.certification-table tbody tr:nth-child(odd) {
+  background-color: #F5F5F5;
+}
+/* Ensure back-button class is available */
+.back-button {
+  background-color: #D3D3D3 !important;
+  color: #000000 !important;
+  border: 1px solid #000000;
+  padding: 8px 30px;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-size: 14px;
+  min-width: 180px;
+  height: 35px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+  line-height: 17px;
+  text-decoration: none !important;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+}
+.back-button:hover {
+  background-color: #C0C0C0 !important;
+  transform: scale(1.02);
+}
+button.back-button {
+  background-color: #D3D3D3 !important;
+  color: #000000 !important;
+  text-decoration: none !important;
+  border: 1px solid #000000;
+  cursor: pointer;
+}
+button.back-button:hover {
+  background-color: #C0C0C0 !important;
+}
+/* Updated action-button to fit longer text */
+.action-button {
+  background-color: #D3D3D3;
+  color: #000000;
+  border: 1px solid #000000;
+  padding: 5px 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-size: 11px;
+  width: 160px; /* Wide enough for "Back to Host Detail" */
+  height: 28px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+  line-height: 1;
+  text-decoration: none;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+  box-sizing: border-box;
+  margin: 0;
+  white-space: nowrap; /* Prevent text wrapping */
+}
+/* Wide action button for longer text like "Delete Unprotected Alerts" */
+.wide-action-button {
+  background-color: #D3D3D3;
+  color: #000000;
+  border: 1px solid #000000;
+  padding: 5px 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-size: 11px;
+  width: 200px; /* Wider for "Delete Unprotected Alerts" */
+  height: 28px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+  line-height: 1;
+  text-decoration: none;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+  box-sizing: border-box;
+  margin: 0;
+  white-space: nowrap;
+}
+/* Small action button for row-level buttons in host_detail.html */
+.small-action-button {
+  background-color: #D3D3D3;
+  color: #000000;
+  border: 1px solid #000000;
+  padding: 5px 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-size: 11px;
+  width: 80px; /* Compact width for table rows */
+  height: 28px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+  line-height: 1;
+  text-decoration: none;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+  box-sizing: border-box;
+  margin: 0;
+  white-space: nowrap;
+}
+/* Explicitly normalize <a> and <button> for all button classes */
+a.action-button, button.action-button,
+a.wide-action-button, button.wide-action-button,
+a.small-action-button, button.small-action-button {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  text-align: center;
+  font-family: Arial, sans-serif;
+  vertical-align: middle;
+}
+/* Hover state for all button classes */
+a.action-button:hover, button.action-button:hover,
+a.wide-action-button:hover, button.wide-action-button:hover,
+a.small-action-button:hover, button.small-action-button:hover {
+  background-color: #C0C0C0;
+  transform: scale(1.02);
+  text-decoration: none !important;
+  color: #000000 !important;
+}
+/* Override conflicting styles */
+button, button:hover, button:visited, button:active,
+a.action-button, a.action-button:hover, a.action-button:visited, a.action-button:active,
+a.wide-action-button, a.wide-action-button:hover, a.wide-action-button:visited, a.wide-action-button:active,
+a.small-action-button, a.small-action-button:hover, a.small-action-button:visited, a.small-action-button:active {
+  text-decoration: none !important;
+  color: #000000 !important;
+}
+/* Widen Actions column in data-table */
+.data-table th:last-child, .data-table td:last-child {
+  width: 200px; /* Ensure enough space for two buttons */
+}
+/* General table styling - Restored to original state from styles.css.1 */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #D3D3D3;
+  margin-bottom: 20px;
+}
+.data-table th,
+.data-table td {
+  padding: 10px;
+  text-align: left;
+  border: 1px solid #666666;
+  color: #000000;
+  white-space: normal; /* Ensure text wraps */
+  word-wrap: break-word; /* Break long words if necessary */
+}
+.data-table th {
+  background-color: #C0C0C0;
+  font-weight: bold;
+}
+.data-table tbody tr:nth-child(even) {
+  background-color: #E6E6E6;
+}
+.data-table tbody tr:nth-child(odd) {
+  background-color: #F5F5F5;
+}
+/* Added styles for user-info section */
+.user-info .logout,
+.user-info .login {
+  color: #FFFFFF;
+  text-decoration: none;
+  font-weight: normal;
+}
+.user-info .logout:hover,
+.user-info .login:hover {
+  text-decoration: underline;
+}
+.user-info .separator {
+  color: #FFFFFF;
+}
+/* Small action button for Manage Ignore Strings, Error Summary, and Job Management buttons */
+.management-links .small-action-button {
+  background-color: #D3D3D3 !important;
+  color: #000000 !important;
+  border: 1px solid #000000 !important;
+  padding: 4px 15px !important;
+  font-weight: bold !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  font-size: 11px !important;
+  font-family: Arial, sans-serif !important;
+  width: 130px !important;
+  height: 20px !important;
+  border-radius: 2.5px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 1px 1px 2.5px rgba(0, 0, 0, 0.3) !important;
+  line-height: 10px !important;
+  text-decoration: none !important;
+  transition: background-color 0.3s ease, transform 0.1s ease !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+}
+.management-links .small-action-button:hover {
+  background-color: #C0C0C0 !important;
+  transform: scale(1.02) !important;
+}
+/* Ensure input buttons (e.g., submit) match link buttons */
+.management-links input.small-action-button {
+  padding: 0 !important;
+  line-height: 10px !important;
+  text-align: center !important;
+  border: 1px solid #000000 !important;
+  font-family: Arial, sans-serif !important;
+  vertical-align: middle !important;
+}
+/* Widen first column for ILOM and Switch tables */
+#ilom-table th:first-child,
+#ilom-table td:first-child,
+#switch-table th:first-child,
+#switch-table td:first-child {
+  width: 300px;
+}
+/* Hide Job ID column for Jobs table */
+#jobs-table th:first-child,
+#jobs-table td:first-child {
+  display: none;
+}
+/* Modal Styles */
+.modal {
+  display: block;
+  visibility: hidden;
+  opacity: 0;
+  position: fixed;
+  z-index: -1;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.4);
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.modal.show {
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 100000 !important;
+}
+.modal-content {
+  background-color: #fefefe;
+  margin: 15% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 80%;
+  max-width: 500px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  position: relative;
+  z-index: 100001;
+  border-radius: 5px;
+}
+#credentialContent {
+  font-size: 16px;
+  color: #333;
+  margin: 10px 0;
+  white-space: pre-wrap;
+  min-height: 20px;
+  background-color: #f0f0f0;
+  padding: 5px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+}
+.close {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 100002;
+}
+.close:hover,
+.close:focus {
+  color: black;
+  text-decoration: none;
+}
+/* Form Styles for Modals */
+.form-group {
+  margin-bottom: 15px;
+}
+.form-group label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #333;
+}
+.form-group input[type="text"],
+.form-group input[type="password"],
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+  border: 1px solid #666666;
+  border-radius: 3px;
+  font-size: 14px;
+  color: #333;
+  background-color: #F5F5F5;
+}
+.form-group select:disabled,
+.form-group input[readonly] {
+  background-color: #E6E6E6;
+  color: #666;
+}
+.form-group textarea {
+  height: 100px;
+  resize: vertical;
+}
+/* Class to toggle visibility */
+.hidden {
+  display: none !important;
+}
+/* Styles for edit_alert.html form */
+.edit-alert-form {
+  background-color: #D3D3D3; /* Match data-table background */
+  padding: 15px;
+  border: 1px solid #666666; /* Match table border */
+  border-radius: 5px;
+  max-width: 1200px;
+  min-width: 1200px; /* Enforce minimum width to prevent viewport shrinkage */
+  margin-bottom: 20px;
+}
+.edit-alert-form .form-group {
+  margin: 0; /* Remove any margins */
+  margin-bottom: 15px;
+  display: flex !important; /* Ensure flexbox applies */
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: nowrap !important;
+  box-sizing: border-box;
+  overflow: hidden; /* Debug rendering issues */
+}
+.edit-alert-form .form-group label {
+  display: block;
+  font-weight: bold;
+  color: #333;
+  width: 150px; /* Fixed width to fit "Community String:" */
+  margin: 0; /* Remove any margins */
+  text-align: left; /* Left-justify labels */
+  white-space: nowrap; /* Prevent label text wrapping */
+  box-sizing: border-box;
+}
+.edit-alert-form .form-group input.form-input,
+.edit-alert-form .form-group select.form-input {
+  width: 200px !important; /* Reduced further to minimize space */
+  margin: 0; /* Remove any margins */
+  padding: 6px;
+  border: 1px solid #666666;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #333;
+  background-color: #F5F5F5;
+  box-sizing: border-box;
+}
+.edit-alert-form .form-input:focus {
+  outline: none;
+  border-color: #2196F3; /* Blue focus ring */
+  background-color: #FFFFFF;
+}
+.edit-alert-form .button-container {
+  justify-content: flex-start; /* Left-justify Save Changes button */
+}
+/* Access Management Page Specific Styles */
+.content-wrapper .access-management-table {
+  table-layout: fixed !important;
+  width: 100% !important;
+  min-width: 770px !important;
+  background-color: #D3D3D3 !important;
+  margin-bottom: 20px !important;
+}
+.content-wrapper .access-management-table th,
+.content-wrapper .access-management-table td {
+  display: table-cell !important;
+  padding: 10px 5px !important;
+  text-align: left !important;
+  border: 1px solid #666666 !important;
+  color: #000000 !important;
+  box-sizing: border-box !important;
+  vertical-align: middle !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.content-wrapper .access-management-table th {
+  background-color: #C0C0C0 !important;
+  font-weight: bold !important;
+}
+/* Add alternating row colors for access-management-table */
+.content-wrapper .access-management-table tbody tr:nth-child(odd) {
+  background-color: #F5F5F5 !important; /* Very light gray for odd rows */
+}
+.content-wrapper .access-management-table tbody tr:nth-child(even) {
+  background-color: #FFFFFF !important; /* White for even rows */
+}
+/* Define specific column widths with high specificity using absolute values */
+.content-wrapper .access-management-table th.checkbox-column,
+.content-wrapper .access-management-table td.checkbox-column {
+  display: table-cell !important;
+  width: 20px !important;
+  min-width: 20px !important;
+  max-width: 20px !important;
+  padding: 10px 5px !important;
+  text-align: center !important;
+}
+.content-wrapper .access-management-table th.component-type-column,
+.content-wrapper .access-management-table td.component-type-column {
+  display: table-cell !important;
+  width: 150px !important;
+  min-width: 150px !important;
+  max-width: none !important;
+}
+.content-wrapper .access-management-table th.component-name-column,
+.content-wrapper .access-management-table td.component-name-column {
+  display: table-cell !important;
+  width: 200px !important;
+  min-width: 200px !important;
+  max-width: none !important;
+}
+.content-wrapper .access-management-table th.username-column,
+.content-wrapper .access-management-table td.username-column {
+  display: table-cell !important;
+  width: 150px !important;
+  min-width: 150px !important;
+  max-width: none !important;
+}
+.content-wrapper .access-management-table th.actions-column,
+.content-wrapper .access-management-table td.actions-column {
+  display: table-cell !important;
+  width: 250px !important;
+  min-width: 250px !important;
+  max-width: none !important;
+}
+.content-wrapper .access-management-table th.checkbox-column input[type="checkbox"] {
+  margin: 0 auto !important;
+  display: block !important;
+}
+.content-wrapper .access-management-table .filter-row th {
+  display: table-cell !important;
+  padding: 10px 5px !important;
+  background-color: #C0C0C0 !important;
+  font-weight: bold !important;
+  color: #000000 !important;
+  border: 1px solid #666666 !important;
+  vertical-align: middle !important;
+}
+.content-wrapper .access-management-table .filter-row th input {
+  width: 100% !important;
+  padding: 5px !important;
+  box-sizing: border-box !important;
+  font-size: 14px !important;
+  border: 1px solid #666666 !important;
+  border-radius: 3px !important;
+  background-color: #F5F5F5 !important;
+  color: #333 !important;
+}
+.content-wrapper .access-management-table .filter-row th.checkbox-column {
+  display: table-cell !important;
+  width: 20px !important;
+  min-width: 20px !important;
+  max-width: 20px !important;
+}
+.status-running {
+  color: #28a745;
+  font-weight: bold;
+}
+.status-failed {
+  color: #dc3545;
+  font-weight: bold;
+}
+.status-not-running {
+  color: #6c757d;
+}
+.restart-scheduler-button {
+    min-width: 220px !important; /* Adjust as needed */
+    padding: 10px 40px !important; /* Extra horizontal space */
+    white-space: nowrap; /* Optional: prevent wrapping */
+}
+/* Modal width fix for credential/key display */
+.modal,
+.modal-content {
+    width: 90% !important;
+    max-width: 1200px !important;
+    margin: 30px auto !important;
+}
+/* Specific styling for key/password display inside modals */
+#credentialModal pre,
+#addCredentialModal pre,
+.modal pre,
+.modal textarea.key-display,
+.modal code {
+    white-space: pre-wrap !important; /* Wrap long lines */
+    word-wrap: break-word !important; /* Break very long words */
+    overflow-x: auto !important; /* Horizontal scroll only if needed */
+    background-color: #f8f8f8 !important;
+    padding: 15px !important;
+    border: 1px solid #ddd !important;
+    border-radius: 4px !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 14px !important;
+    max-height: 60vh !important;
+    overflow-y: auto !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+/* Optional: make textarea resizable if you use one instead of <pre> */
+.modal textarea {
+    width: 100% !important;
+    min-height: 300px !important;
+    resize: vertical !important;
+}
+
+/* 1.33 FULL DOM PATH MAXIMUM SPECIFICITY OVERRIDE - beats JS-injected inline !important styles */
+/* Uses the exact structure from the setup_environment.html you just provided */
+html body .setup-columns .custom-shell-content button.small-action-button[onclick*="runCustomCommand"],
+html body .setup-columns .custom-shell-content button.small-action-button[onclick*="runCustomCommand"],
+html body .setup-columns .custom-shell-content button.small-action-button[onclick*="runCustomCommand"],
+html body .setup-columns .custom-shell-section .custom-shell-content button.small-action-button[onclick*="runCustomCommand"] {
+  width: 135px !important;
+  min-width: 135px !important;
+  max-width: 135px !important;
+  padding: 9px 12px !important;
+  font-size: 13px !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  line-height: 1.3 !important;
+  height: auto !important;
+  display: block !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+}
