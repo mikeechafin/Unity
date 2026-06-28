@@ -1,0 +1,635 @@
+#!/usr/bin/env python3
+# Version: 2026-04-05 v2.06
+# Changes: Switch MAC table backfills now use silent=True (no per-MAC spam) + one summary line per switch. VM MACs (525400 prefix) filtered. Keeps all RoCE extraction/stored/link-creation messages + clean summary. Log now tiny & readable.
+
+import os
+import sys
+import re
+import logging
+import time
+import subprocess
+from collections import defaultdict
+import fcntl
+import paramiko
+import oracledb
+import socket
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from maa_db_pool import get_db_pool_connection, release_db_pool_connection
+from maa_libraries import get_credential
+
+LOG_DIR = '/home/maatest/mchafin/MAA_APPS_NEW/output'
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_PATH = os.path.join(LOG_DIR, 'collect_network_topology.log')
+BACKUP_PATH = LOG_PATH + '.bak'
+
+if os.path.exists(LOG_PATH):
+    try:
+        if os.path.exists(BACKUP_PATH):
+            os.remove(BACKUP_PATH)
+        os.rename(LOG_PATH, BACKUP_PATH)
+    except Exception:
+        pass
+
+logger = logging.getLogger('collect_network_topology')
+logger.setLevel(logging.INFO)
+logger.propagate = False
+
+fh = logging.FileHandler(LOG_PATH)
+fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+logger.addHandler(fh)
+
+ch = logging.StreamHandler()
+ch.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+logger.addHandler(ch)
+
+LOCK_FILE = '/tmp/collect_network_topology.lock'
+
+ROCE_INTERFACES = ['re0', 're1', 'stre0', 'stre1', 're0pf', 're1pf', 're0vf', 're1vf', 'ib0', 'ib1']
+
+credential_cache = {}
+
+def normalize_mac(mac: str) -> str:
+    if not mac:
+        return ''
+    cleaned = re.sub(r'[^0-9a-f]', '', mac.lower())
+    return cleaned if len(cleaned) == 12 else ''
+
+def is_valid_server_mac(mac: str) -> bool:
+    if len(mac) != 12:
+        return False
+    return mac.startswith(('a8698c', '0010e0', '90e2ba', 'b8cef6', 'b83fd2', '0c42a1', '7c8c09', '1070fd', 'e09d73'))
+
+def is_reachable(hostname, timeout=2):
+    try:
+        result = subprocess.run(['ping', '-c', '1', '-W', str(timeout), hostname], 
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+        return result.returncode == 0
+    except:
+        return False
+
+def is_stale_lock():
+    if not os.path.exists(LOCK_FILE):
+        return False
+    try:
+        with open(LOCK_FILE, 'r') as f:
+            pid = int(f.read().strip())
+        import psutil
+        if not psutil.pid_exists(pid):
+            return True
+        age = time.time() - os.path.getmtime(LOCK_FILE)
+        return age > 1800
+    except:
+        return True
+
+def acquire_lock():
+    if is_stale_lock():
+        try:
+            os.remove(LOCK_FILE)
+            logger.info("Stale lock file removed - proceeding")
+        except:
+            pass
+    lock_fd = open(LOCK_FILE, 'w')
+    lock_fd.write(str(os.getpid()))
+    lock_fd.flush()
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        logger.info("Lock acquired successfully")
+        return lock_fd
+    except IOError:
+        logger.error("Another instance of collect_network_topology is already running - exiting")
+        sys.exit(1)
+
+def release_lock(lock_fd):
+    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    lock_fd.close()
+    try:
+        os.remove(LOCK_FILE)
+    except:
+        pass
+    logger.info("Lock released")
+
+def connect_ssh(hostname, username, password, timeout=60):
+    if 'roces0' in hostname.lower():
+        timeout = 300
+    elif 'roce' in hostname.lower():
+        timeout = 180
+    try:
+        socket.setdefaulttimeout(timeout + 10)
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(hostname, username=username, password=password, timeout=timeout, allow_agent=False, look_for_keys=False)
+        return ssh
+    except Exception as e:
+        logger.warning(f"Connection failed for {hostname}: {str(e)[:120]}")
+        raise
+
+def get_device_id(cursor, hostname):
+    cursor.execute("""
+        SELECT 
+            CASE 
+                WHEN EXISTS (SELECT 1 FROM switch_info WHERE hostname = :hostname) THEN 
+                    ORA_HASH(:hostname, 999999, 0) + 1000000
+                WHEN EXISTS (SELECT 1 FROM exa_servers WHERE hostname = :hostname) THEN 
+                    (SELECT server_id FROM exa_servers WHERE hostname = :hostname)
+                ELSE 9999
+            END as device_id
+        FROM dual
+    """, {'hostname': hostname})
+    row = cursor.fetchone()
+    return row[0]
+
+def get_protocol_for_switch(hostname):
+    if 'ib' in hostname.lower():
+        return 'ib'
+    elif 'roce' in hostname.lower():
+        return 'roce'
+    return 'lldp'
+
+def parse_lldp_neighbors(output: str):
+    entries = []
+    current = {}
+    for line in output.splitlines():
+        line = line.strip()
+        if line.startswith('Chassis id:'):
+            if current:
+                entries.append(current)
+            current = {'chassis_id': line.split(':', 1)[1].strip()}
+        elif 'Local Port id:' in line:
+            current['local_port'] = line.split(':', 1)[1].strip()
+        elif 'Port id:' in line:
+            current['remote_port'] = line.split(':', 1)[1].strip()
+        elif 'System Name:' in line:
+            current['remote_system'] = line.split(':', 1)[1].strip()
+    if current:
+        entries.append(current)
+    return entries
+
+def parse_mac_address_table(output: str):
+    mac_to_port = {}
+    for line in output.splitlines():
+        line = line.strip()
+        if not line or '---' in line or 'Mac Address' in line or 'Vlan' in line or 'Total' in line:
+            continue
+        mac_match = re.search(r'([0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2}|[0-9a-f]{4}\.[0-9a-f]{4}\.[0-9a-f]{4})', line, re.IGNORECASE)
+        if not mac_match:
+            continue
+        raw_mac = mac_match.group(1)
+        mac = normalize_mac(raw_mac)
+        if not mac or mac.startswith('525400'):  # skip VMware/KVM virtual MACs
+            continue
+        port_match = re.search(r'(Eth[0-9/]+|Po[0-9]+|Te[0-9/]+|Gig[0-9/]+|[A-Za-z0-9/]+)', line, re.IGNORECASE)
+        if port_match:
+            port = port_match.group(1)
+            if re.match(r'^\d+$', port) and len(port) > 3:
+                continue
+            mac_to_port[mac] = port
+    return mac_to_port
+
+def parse_ip_link(output: str):
+    interfaces = []
+    for line in output.splitlines():
+        if any(p in line.lower() for p in ROCE_INTERFACES) or 'link/ether' in line:
+            match = re.search(r'link/ether\s+([0-9a-f:.-]+)', line, re.IGNORECASE)
+            if match:
+                raw_mac = match.group(1)
+                mac = normalize_mac(raw_mac)
+                iface_match = re.search(r'^\d+:\s*([^:\s]+)', line)
+                iface = iface_match.group(1) if iface_match else 'unknown'
+                if mac and is_valid_server_mac(mac):
+                    interfaces.append({'name': iface, 'mac': mac})
+                    logger.info(f"Extracted RoCE MAC: {iface} -> {mac} (raw {raw_mac})")
+    return interfaces
+
+def get_or_create_port(cursor, device_id, port_name, mac, port_type, silent=False):
+    cursor.execute("SELECT id FROM ports WHERE device_id = :1 AND name = :2", (device_id, port_name))
+    row = cursor.fetchone()
+    if row:
+        if mac and mac.strip():
+            cursor.execute("UPDATE ports SET mac_address = :mac WHERE id = :id", (mac, row[0]))
+            if not silent:
+                logger.info(f"Backfilled MAC for existing port {port_name}: {mac}")
+        return row[0]
+    cursor.execute("""
+        INSERT INTO ports (id, device_id, name, mac_address, port_type, speed, mtu, status)
+        VALUES (ports_seq.NEXTVAL, :1, :2, :3, :4, '100G', 2300, 'up')
+    """, (device_id, port_name, mac, port_type))
+    cursor.execute("SELECT ports_seq.CURRVAL FROM DUAL")
+    return cursor.fetchone()[0]
+
+def create_roce_links_from_macs(cursor):
+    cursor.execute("DELETE FROM discovered_links WHERE protocol = 'roce'")
+    logger.info("Cleared all previous RoCE links for clean consolidation")
+    conn = cursor.connection
+    conn.commit()
+
+    cursor.execute("SELECT DISTINCT mac_address FROM ports WHERE port_type = 'roce' AND mac_address IS NOT NULL")
+    server_macs = {row[0]: [] for row in cursor.fetchall()}
+    mac_links_created = 0
+    processed = set()
+    exact_count = 0
+    suffix_count = 0
+    prefix_count = 0
+
+    cursor.execute("""
+        SELECT p.mac_address, p.name, p.device_id
+        FROM ports p 
+        WHERE p.mac_address IS NOT NULL AND p.port_type = 'eth' AND p.name != '21'
+    """)
+    switch_mac_map = {}
+    for mac, port, dev_id in cursor.fetchall():
+        switch_mac_map[mac] = (port, dev_id)
+
+    logger.info(f"Global switch MAC map built with {len(switch_mac_map)} entries (dummy '21' filtered)")
+
+    # Exact match
+    for mac in list(server_macs.keys()):
+        if mac in processed or mac not in switch_mac_map:
+            continue
+        switch_port, switch_device_id = switch_mac_map[mac]
+        cursor.execute("SELECT id FROM ports WHERE mac_address = :mac AND port_type = 'roce'", {'mac': mac})
+        server_row = cursor.fetchone()
+        if server_row:
+            server_port_id = server_row[0]
+            switch_port_id = get_or_create_port(cursor, switch_device_id, switch_port, None, 'eth', silent=True)
+            cursor.execute("SELECT COUNT(*) FROM discovered_links WHERE port_a_id = :1 AND port_b_id = :2 AND protocol = 'roce'", (server_port_id, switch_port_id))
+            if cursor.fetchone()[0] == 0:
+                cursor.execute("""
+                    INSERT INTO discovered_links (id, port_a_id, port_b_id, protocol, speed, is_active, confidence)
+                    VALUES (discovered_links_seq.NEXTVAL, :1, :2, 'roce', '100G', 1, 95)
+                """, (server_port_id, switch_port_id))
+                mac_links_created += 1
+                exact_count += 1
+                processed.add(mac)
+                logger.info(f"MAC RoCE link created: Server MAC {mac} --(roce)--> Switch {switch_port} (dev_id {switch_device_id})")
+
+    # Suffix fallback
+    for mac in list(server_macs.keys()):
+        if mac in processed:
+            continue
+        for length in [8, 6, 4]:
+            partial = mac[-length:]
+            cursor.execute("""
+                SELECT p.id, p.name, p.device_id 
+                FROM ports p 
+                WHERE p.mac_address LIKE '%' || :partial 
+                AND p.port_type = 'eth'
+                AND p.name != '21'
+                FETCH FIRST 1 ROW ONLY
+            """, {'partial': partial})
+            row = cursor.fetchone()
+            if row:
+                switch_port_id, switch_port, switch_device_id = row
+                cursor.execute("SELECT id FROM ports WHERE mac_address = :mac AND port_type = 'roce'", {'mac': mac})
+                server_row = cursor.fetchone()
+                if server_row:
+                    server_port_id = server_row[0]
+                    cursor.execute("SELECT COUNT(*) FROM discovered_links WHERE port_a_id = :1 AND port_b_id = :2 AND protocol = 'roce'", (server_port_id, switch_port_id))
+                    if cursor.fetchone()[0] == 0:
+                        cursor.execute("""
+                            INSERT INTO discovered_links (id, port_a_id, port_b_id, protocol, speed, is_active, confidence)
+                            VALUES (discovered_links_seq.NEXTVAL, :1, :2, 'roce', '100G', 1, 80)
+                        """, (server_port_id, switch_port_id))
+                        mac_links_created += 1
+                        suffix_count += 1
+                        processed.add(mac)
+                break
+
+    # Prefix fallback
+    for mac in list(server_macs.keys()):
+        if mac in processed:
+            continue
+        for prefix in ['a8698c', '0010e0', '90e2ba', 'b8cef6', 'b83fd2', '0c42a1']:
+            cursor.execute("""
+                SELECT p.id, p.name, p.device_id 
+                FROM ports p 
+                WHERE p.mac_address LIKE :prefix || '%' 
+                AND p.port_type = 'eth'
+                AND p.name != '21'
+                FETCH FIRST 1 ROW ONLY
+            """, {'prefix': prefix})
+            row = cursor.fetchone()
+            if row:
+                switch_port_id, switch_port, switch_device_id = row
+                cursor.execute("SELECT id FROM ports WHERE mac_address = :mac AND port_type = 'roce'", {'mac': mac})
+                server_row = cursor.fetchone()
+                if server_row:
+                    server_port_id = server_row[0]
+                    cursor.execute("SELECT COUNT(*) FROM discovered_links WHERE port_a_id = :1 AND port_b_id = :2 AND protocol = 'roce'", (server_port_id, switch_port_id))
+                    if cursor.fetchone()[0] == 0:
+                        cursor.execute("""
+                            INSERT INTO discovered_links (id, port_a_id, port_b_id, protocol, speed, is_active, confidence)
+                            VALUES (discovered_links_seq.NEXTVAL, :1, :2, 'roce', '100G', 1, 65)
+                        """, (server_port_id, switch_port_id))
+                        mac_links_created += 1
+                        prefix_count += 1
+                        processed.add(mac)
+                break
+
+    logger.info(f"Exact MAC matches: {exact_count}")
+    logger.info(f"Suffix fallbacks used: {suffix_count}")
+    logger.info(f"Prefix fallbacks (a8698c first match): {prefix_count}")
+    logger.info(f"Final consolidation: {mac_links_created} MAC-based RoCE links created")
+
+    unmatched = defaultdict(list)
+    for mac in server_macs:
+        if mac not in processed:
+            cursor.execute("""
+                SELECT e.hostname FROM ports p JOIN exa_servers e ON p.device_id = e.server_id 
+                WHERE p.mac_address = :mac
+            """, {'mac': mac})
+            host_row = cursor.fetchone()
+            host = host_row[0] if host_row else "unknown"
+            unmatched[host].append(mac)
+
+    if unmatched:
+        logger.warning(f"Unmatched RoCE MACs (not on any switch): {sum(len(v) for v in unmatched.values())}")
+        for host, macs in list(unmatched.items())[:5]:
+            logger.warning(f"  Host {host}: {len(macs)} unmatched MACs (sample: {macs[0] if macs else ''})")
+
+    return mac_links_created
+
+def process_switch_topology(hostname, insert_links_only=False):
+    try:
+        conn = get_db_pool_connection()
+        cursor = conn.cursor()
+        username = None
+        password = None
+        for user in ['admin', 'root', 'oracle']:
+            cache_key = ('SWITCH', hostname, user)
+            password = credential_cache.get(cache_key) or get_credential(cursor, 'SWITCH', hostname, user) or get_credential(cursor, 'SWITCH', 'default', user)
+            if password:
+                credential_cache[cache_key] = password
+                username = user
+                break
+        if not password:
+            password = get_credential(cursor, 'SWITCH', 'default', 'admin') or get_credential(cursor, 'SWITCH', 'default', 'root')
+            username = 'admin' if password else 'root'
+            logger.info(f"Using default credential fallback for {hostname}")
+        device_id = get_device_id(cursor, hostname)
+        cursor.close()
+        release_db_pool_connection(conn)
+
+        timeout = 300 if 'roces0' in hostname.lower() else (180 if 'roce' in hostname.lower() else 15)
+        ssh = connect_ssh(hostname, username, password, timeout)
+
+        if 'roce' in hostname.lower():
+            try:
+                for _ in range(70):
+                    ssh.exec_command('ping -c 1 -b 224.0.0.1 > /dev/null 2>&1')
+                time.sleep(70)
+                for cmd in ['clear mac address-table dynamic', 'clear mac address-table dynamic interface all', 'clear arp-cache', 'clear mac address-table']:
+                    try:
+                        ssh.exec_command(cmd)
+                    except:
+                        pass
+                time.sleep(12)
+            except:
+                pass
+
+        lldp_out = ''
+        mac_out = ''
+        try:
+            _, stdout, _ = ssh.exec_command('show lldp neighbors detail')
+            lldp_out = stdout.read().decode('utf-8', errors='ignore')
+        except:
+            pass
+        mac_cmds = [
+            'show mac address-table | no-more',
+            'show mac address-table dynamic | no-more',
+            'show mac address-table dynamic interface all | no-more',
+            'show mac address-table | include [0-9a-f]'
+        ]
+        for cmd in mac_cmds:
+            try:
+                _, stdout, _ = ssh.exec_command(cmd)
+                chunk = stdout.read().decode('utf-8', errors='ignore')
+                mac_out += chunk + '\n'
+                if len(chunk) > 2000:
+                    break
+            except:
+                pass
+        lldp_links = parse_lldp_neighbors(lldp_out)
+        mac_map = parse_mac_address_table(mac_out)
+        ssh.close()
+
+        conn = get_db_pool_connection()
+        cursor = conn.cursor()
+        protocol = get_protocol_for_switch(hostname)
+
+        if not insert_links_only:
+            for link in lldp_links:
+                local_port_name = link.get('local_port', 'unknown')
+                get_or_create_port(cursor, device_id, local_port_name, None, 'eth')
+        else:
+            for link in lldp_links:
+                local_port_name = link.get('local_port', 'unknown')
+                remote_port_name = link.get('remote_port', 'unknown')
+                remote_system = link.get('remote_system')
+                if not remote_system or remote_system == hostname:
+                    continue
+                remote_device_id = get_device_id(cursor, remote_system)
+                cursor.execute("SELECT id FROM ports WHERE device_id = :1 AND name = :2", (device_id, local_port_name))
+                row = cursor.fetchone()
+                if not row:
+                    continue
+                local_id = row[0]
+                cursor.execute("SELECT id FROM ports WHERE name = :1 AND device_id = :2 AND ROWNUM = 1", (remote_port_name, remote_device_id))
+                row = cursor.fetchone()
+                if not row:
+                    cursor.execute("SELECT id FROM ports WHERE name LIKE '%' || :1 || '%' AND device_id = :2 AND ROWNUM = 1", (remote_port_name, remote_device_id))
+                    row = cursor.fetchone()
+                if row:
+                    remote_id = row[0]
+                    cursor.execute("""
+                        INSERT INTO discovered_links (id, port_a_id, port_b_id, protocol, speed, is_active, confidence)
+                        VALUES (discovered_links_seq.NEXTVAL, :1, :2, :3, '100G', 1, 80)
+                    """, (local_id, remote_id, protocol))
+
+        if mac_map:
+            logger.info(f"Switch {hostname} MAC table: {len(mac_map)} dynamic entries")
+            for mac, port in list(mac_map.items())[:5]:
+                logger.info(f"  Switch MAC sample: {mac} -> {port}")
+            for mac, switch_port in mac_map.items():
+                get_or_create_port(cursor, device_id, switch_port, mac, 'eth', silent=True)
+            logger.info(f"Backfilled {len(mac_map)} MACs from switch {hostname} MAC table")
+
+        conn.commit()
+        cursor.close()
+        release_db_pool_connection(conn)
+        return True
+    except Exception as e:
+        logger.error(f"Switch {hostname} failed: {str(e)[:150]}")
+        return False
+
+def process_host_topology(hostname, insert_links_only=False):
+    try:
+        conn = get_db_pool_connection()
+        cursor = conn.cursor()
+        password = None
+        for user in ['root', 'oracle']:
+            cache_key = ('GUEST', hostname, user)
+            password = credential_cache.get(cache_key) or get_credential(cursor, 'GUEST', hostname, user) or get_credential(cursor, 'GUEST', 'default', user)
+            if password:
+                credential_cache[cache_key] = password
+                break
+        if not password:
+            password = get_credential(cursor, 'GUEST', 'default', 'root')
+            logger.info(f"Using default credential fallback for host {hostname}")
+        device_id = get_device_id(cursor, hostname)
+        cursor.close()
+        release_db_pool_connection(conn)
+
+        username = 'root' if password else 'oracle'
+        ssh = connect_ssh(hostname, username, password, timeout=45)
+
+        _, stdout, _ = ssh.exec_command('ip -o link show')
+        ip_out = stdout.read().decode('utf-8', errors='ignore')
+        interfaces = parse_ip_link(ip_out)
+        ssh.close()
+
+        conn = get_db_pool_connection()
+        cursor = conn.cursor()
+        if not insert_links_only:
+            for iface in interfaces:
+                get_or_create_port(cursor, device_id, iface['name'], iface['mac'], 'roce')
+                logger.info(f"Host {hostname}: RoCE port {iface['name']} MAC {iface['mac']} stored")
+        conn.commit()
+        cursor.close()
+        release_db_pool_connection(conn)
+        return True
+    except Exception as e:
+        logger.error(f"Host {hostname} failed: {str(e)[:150]}")
+        return False
+
+def collect_network_topology():
+    start_time = time.time()
+    logger.info("=== Network Topology Collector v2.06 - FULL FLEET RUN STARTED ===")
+
+    conn = get_db_pool_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE ports SET mac_address = REGEXP_REPLACE(LOWER(mac_address), '[^0-9a-f]', '') WHERE mac_address IS NOT NULL")
+    normalized = cursor.rowcount
+    conn.commit()
+    logger.info(f"Normalized {normalized} legacy MACs in ports table")
+
+    cursor.execute("""
+        SELECT e.hostname, p.name, p.mac_address 
+        FROM ports p JOIN exa_servers e ON p.device_id = e.server_id 
+        WHERE p.port_type = 'roce' ORDER BY e.hostname, p.name FETCH FIRST 10 ROWS ONLY
+    """)
+    logger.info("Sample stored server RoCE MACs (normalized):")
+    for r in cursor.fetchall():
+        logger.info(f"  {r[0]} {r[1]} MAC {r[2]}")
+
+    cursor.execute("SELECT hostname FROM switch_info")
+    switches = [row[0] for row in cursor.fetchall()]
+    cursor.execute("SELECT hostname FROM exa_servers WHERE node_type IN ('COMPUTE', 'STORAGE')")
+    hosts = [row[0] for row in cursor.fetchall()]
+    cursor.close()
+    release_db_pool_connection(conn)
+
+    logger.info("Performing reachability ping check for all switches...")
+    reachable_switches = []
+    skipped_switches = []
+    for s in switches:
+        if is_reachable(s):
+            reachable_switches.append(s)
+        else:
+            skipped_switches.append(s)
+            logger.warning(f"Skipping unreachable switch {s} (ping failed)")
+    logger.info(f"Ping check complete: {len(reachable_switches)} reachable, {len(skipped_switches)} skipped")
+
+    roce_switches = [s for s in reachable_switches if 'roce' in s.lower()]
+
+    logger.info(f"Found {len(reachable_switches)} reachable switches ({len(roce_switches)} RoCE) and {len(hosts)} hosts. Starting parallel collection...")
+
+    failed_hosts = []
+    failed_switches = []
+
+    with ThreadPoolExecutor(max_workers=40) as executor:
+        host_futures = {executor.submit(process_host_topology, h, False): h for h in hosts}
+        for future in as_completed(host_futures):
+            if not future.result():
+                failed_hosts.append(host_futures[future])
+
+    with ThreadPoolExecutor(max_workers=40) as executor:
+        switch_futures = {executor.submit(process_switch_topology, sw, False): sw for sw in reachable_switches}
+        for future in as_completed(switch_futures):
+            if not future.result():
+                failed_switches.append(switch_futures[future])
+
+    with ThreadPoolExecutor(max_workers=40) as executor:
+        switch_futures = {executor.submit(process_switch_topology, sw, True): sw for sw in reachable_switches}
+        for future in as_completed(switch_futures):
+            if not future.result():
+                failed_switches.append(switch_futures[future])
+
+    logger.info("Starting second MAC refresh pass on RoCE switches...")
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        switch_futures = {executor.submit(process_switch_topology, sw, True): sw for sw in roce_switches}
+        for future in as_completed(switch_futures):
+            if not future.result():
+                failed_switches.append(switch_futures[future])
+
+    conn = get_db_pool_connection()
+    cursor = conn.cursor()
+    roce_created = create_roce_links_from_macs(cursor)
+    conn.commit()
+    cursor.close()
+    release_db_pool_connection(conn)
+
+    conn = get_db_pool_connection()
+    cursor = conn.cursor()
+    logger.info("=" * 80)
+    logger.info("=== DATA INTEGRITY VALIDATION REPORT ===")
+    cursor.execute("""
+        SELECT 
+            (SELECT COUNT(*) FROM ports) AS total_ports,
+            (SELECT COUNT(*) FROM discovered_links WHERE is_active = 1) AS total_active_links,
+            (SELECT COUNT(*) FROM discovered_links WHERE is_active = 1 AND port_a_id != port_b_id) AS real_cross_device_links,
+            (SELECT COUNT(*) FROM discovered_links WHERE is_active = 1 AND port_a_id = port_b_id) AS self_loops,
+            (SELECT COUNT(*) FROM discovered_links WHERE protocol = 'roce' AND is_active = 1) AS roce_links
+        FROM DUAL
+    """)
+    row = cursor.fetchone()
+    logger.info(f"Total Ports          : {row[0]:,}")
+    logger.info(f"Total Active Links   : {row[1]:,}")
+    logger.info(f"Real Cross-Device Links: {row[2]:,}")
+    logger.info(f"Self-Loops (should be 0): {row[3]}")
+    logger.info(f"RoCE Links Created   : {row[4]}")
+    cursor.execute("DELETE FROM discovered_links WHERE is_active = 1 AND port_a_id = port_b_id")
+    deleted = cursor.rowcount
+    conn.commit()
+    logger.info(f"Self-Loops Removed   : {deleted}")
+    cursor.execute("""
+        SELECT protocol, COUNT(*) as count FROM discovered_links WHERE is_active = 1 GROUP BY protocol ORDER BY count DESC
+    """)
+    logger.info("Protocol Breakdown:")
+    for r in cursor.fetchall():
+        logger.info(f"  {r[0]:<8} : {r[1]:,}")
+    cursor.close()
+    release_db_pool_connection(conn)
+
+    elapsed = time.time() - start_time
+    logger.info("=" * 80)
+    logger.info(f"=== COLLECTION COMPLETE ===")
+    logger.info(f"Time: {elapsed:.1f}s | Switches: {len(reachable_switches)} | Hosts: {len(hosts)}")
+    logger.info(f"DATA INTEGRITY: {row[0]} ports + {row[2]} real discovered links saved")
+    logger.info("=" * 80)
+
+def main():
+    logger.info("Network Topology Collector v2.06 started")
+    lock_fd = None
+    try:
+        lock_fd = acquire_lock()
+        collect_network_topology()
+    finally:
+        if lock_fd:
+            release_lock(lock_fd)
+    logger.info("Network Topology Collector completed")
+
+if __name__ == "__main__":
+    main()
