@@ -11,8 +11,8 @@ RELEASE_NAME="maa-unity-${DATE}-${VERSION}"
 STAGING="/tmp/${RELEASE_NAME}"
 TARBALL="${RELEASE_NAME}.tar.gz"
 
-# Default: drop releases on shared drive if mounted
-DEFAULT_OUT="/mnt/hgfs/D/UNIFIED/releases"
+# Default: local dist/ directory (copy bundle to prod manually or via scp)
+DEFAULT_OUT="$(cd "$(dirname "$0")/../.." && pwd)/dist"
 OUT_DIR="${1:-$DEFAULT_OUT}"
 
 echo "Building release: ${RELEASE_NAME}"

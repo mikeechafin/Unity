@@ -39,6 +39,9 @@ Thumbs.db
 output/*
 !output/.gitkeep
 
+# Release build artifacts
+dist/
+
 # Runtime screenshots from ASR/FEMS fault testing
 static/screenshots/
 

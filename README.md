@@ -101,33 +101,60 @@ python3 parse_agent_logs.py --parse-only --test-host myhost.example.com
 Set `CODEX_CLI=codex` (OpenAI Codex CLI) or `OPENAI_API_KEY` for AI analysis.
 Regression detection compares fingerprint snapshots between runs (`output/agent_error_analysis/`).
 
-## Deploying to Production (no git on prod)
+## Deploying to Production
 
-Production can't use git directly. Use versioned release tarballs on the shared drive:
+**Production host:** `scaqaa04celadm12.us.oracle.com`  
+**Install path:** `/home/maatest/mchafin/MAA_APPS_NEW`  
+**Constraints:** no git on prod, no shared-drive mount on prod — copy files manually or via `scp`.
+
+### 1. Build a single deploy bundle (dev machine)
 
 ```bash
-# On dev VM (has git + shared drive mount)
 chmod +x scripts/deploy/*.sh
-./scripts/deploy/push-to-shared.sh /mnt/hgfs/D/UNIFIED/releases
-
-# On production app server
-/mnt/hgfs/D/UNIFIED/releases/install-release.sh \
-  /mnt/hgfs/D/UNIFIED/releases/maa-unity-latest.tar.gz \
-  /home/maatest/mchafin/MAA_APPS_NEW
+./scripts/deploy/make-deploy-bundle.sh
+# Output: dist/maa-unity-YYYYMMDD-<sha>-deploy-bundle.tar.gz  (~900 KB)
 ```
 
-The install script backs up the current tree, deploys new code, and **preserves** `encryption_key.txt`, TLS certs, `output/`, `EMCLI/`, and `OEDA/`. Rollback uses the timestamped backup under `backups/`.
+Optional: also stage on shared drive for pickup from your laptop:
 
-Set on production after install:
+```bash
+./scripts/deploy/push-to-shared.sh /mnt/hgfs/D/UNIFIED/releases
+```
+
+### 2. Copy bundle to production
+
+From any host that can reach prod (or via shared drive → your PC → scp):
+
+```bash
+scp dist/maa-unity-*-deploy-bundle.tar.gz maatest@scaqaa04celadm12.us.oracle.com:~/mchafin/
+```
+
+Or automated if SSH works from dev:
+
+```bash
+./scripts/deploy/copy-to-production.sh
+```
+
+### 3. Install on production
+
+```bash
+ssh maatest@scaqaa04celadm12.us.oracle.com
+cd ~/mchafin
+tar -xzf maa-unity-*-deploy-bundle.tar.gz
+cd maa-unity-*-deploy-bundle
+./install-bundle.sh
+```
+
+Install backs up code to `~/mchafin/backups/`, deploys new files, and **preserves** `encryption_key.txt`, TLS certs, `output/`, `EMCLI/`, and `OEDA/`.
 
 ```bash
 export MAA_APP_ROOT=/home/maatest/mchafin/MAA_APPS_NEW
 export MAA_OUTPUT_DIR=$MAA_APP_ROOT/output
+# pip install -r $MAA_APP_ROOT/requirements.txt   # if requirements changed
+# restart maa_unified_app.py
 ```
 
-### RPM?
-
-An RPM works on Oracle Linux if you want `yum history` rollback, but for this Python app a tarball is simpler: no root packaging pipeline, easier diff review, and secrets stay outside the package. You can wrap the same tarball in an RPM later if ops requires it.
+**Rollback:** `rsync -a ~/mchafin/backups/MAA_APPS_NEW_<timestamp>/ /home/maatest/mchafin/MAA_APPS_NEW/`
 
 ## Configuration (`config.py`)
 
