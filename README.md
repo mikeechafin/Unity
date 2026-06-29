@@ -101,6 +101,34 @@ python3 parse_agent_logs.py --parse-only --test-host myhost.example.com
 Set `CODEX_CLI=codex` (OpenAI Codex CLI) or `OPENAI_API_KEY` for AI analysis.
 Regression detection compares fingerprint snapshots between runs (`output/agent_error_analysis/`).
 
+## Deploying to Production (no git on prod)
+
+Production can't use git directly. Use versioned release tarballs on the shared drive:
+
+```bash
+# On dev VM (has git + shared drive mount)
+chmod +x scripts/deploy/*.sh
+./scripts/deploy/push-to-shared.sh /mnt/hgfs/D/UNIFIED/releases
+
+# On production app server
+/mnt/hgfs/D/UNIFIED/releases/install-release.sh \
+  /mnt/hgfs/D/UNIFIED/releases/maa-unity-latest.tar.gz \
+  /home/maatest/mchafin/MAA_APPS_NEW
+```
+
+The install script backs up the current tree, deploys new code, and **preserves** `encryption_key.txt`, TLS certs, `output/`, `EMCLI/`, and `OEDA/`. Rollback uses the timestamped backup under `backups/`.
+
+Set on production after install:
+
+```bash
+export MAA_APP_ROOT=/home/maatest/mchafin/MAA_APPS_NEW
+export MAA_OUTPUT_DIR=$MAA_APP_ROOT/output
+```
+
+### RPM?
+
+An RPM works on Oracle Linux if you want `yum history` rollback, but for this Python app a tarball is simpler: no root packaging pipeline, easier diff review, and secrets stay outside the package. You can wrap the same tarball in an RPM later if ops requires it.
+
 ## Configuration (`config.py`)
 
 Central configuration reads from environment variables:
